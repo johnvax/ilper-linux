@@ -1408,7 +1408,7 @@ int main(int argc, char **argv)
 	  mvwprintw( wcur, 0,0,"%s", wstr );
 	  wrefresh( wcur );
 	}
-      else if ( 'p' == c )
+      else if ( ! ilst && ( 'p' == c ))
 	{
 	  wattroff( wcur, A_REVERSE );
 	  mvwprintw( wcur, 0, 0, "%s", wstr );
@@ -1419,7 +1419,7 @@ int main(int argc, char **argv)
 	  mvwprintw( wcur, 0,0,"%s", wstr );
 	  wrefresh( wcur );
 	}
-      else if (( 'l' == c ) || ( 'L' == c ))
+      else if (! ilst && (( 'l' == c ) || ( 'L' == c )))
 	{
 	  wattroff( wcur, A_REVERSE );
 	  mvwprintw( wcur, 0, 0, "%s", wstr );
@@ -1427,7 +1427,7 @@ int main(int argc, char **argv)
 	  wcur = wca;
 	  wstr = strca;
 	  wattron( wcur, A_REVERSE );
-	  if ( 'L' == c )
+	  if (! ilst && ( 'L' == c ) )
 	    {
 	      werase (wcur);
 	      select_file (main_window);
