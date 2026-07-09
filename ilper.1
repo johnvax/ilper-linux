@@ -1,0 +1,120 @@
+.TH ilper 1  1-Mar-2012 "PILBox peripherials emulation" ""
+.SH NAME
+ilper \- Mass storage and Video emulation for the PILBox
+.SH SYNOPSIS
+.B ilper
+.SH DESCRIPTION
+.B ilper
+(1) is an peripherials emulator for usage with the PILBox. The PILBox is
+a USB/HP-IL converter to use with HP-IL controller, as the HP-41C*, HP-75C
+and HP71B. The PILBox is designed and build by Jean-Francois Garnier.
+.PP
+It emulates a video display at address 1 and a Mass storage at address 2.
+.PP
+A scope mode is available to "capture" and "print" all HP-IL frames.
+.PP
+When launched,
+.B ilper
+(1) will show 3 windows as follow:
+.nf
++-------------------------------[ ILPER 1.35.1 ]--------------------------------+
+|                                                                               |
+| +-< Mass Storage LIF File >---------+   +-< PILBox Link >-------+             |
+| |LIF:HDRIVE1.DAT                    |   |Device:/dev/ttyUSB0    |     [STOP ] |
+| +-----------------------------------+   +-----------------------+             |
+|                                                                               |
++-< Display >---------------------------+-< Scope:scope.out >-------------------+
+|                                       | IFC      AAU      AAD 01   TAD 01     |
+|T=  0.0000                             | SAI      DAB 2E   UNL      LAD 01     |
+|Z=  0.0000                             | UNL      AAU      AAD 01   TAD 01     |
+|Y=  0.0000                             | SAI      DAB 2E   LAD 01   UNL        |
+|X=  0.0000                             | AAU      AAD 01   TAD 01   SAI        |
+|                                       | DAB 2E   LAD 01   DAB 0D   DAB 0A     |
+.fi
+.PP
+The top window contains three fields:
+.TP
+\(bu \fB< Mass Storage LIF File >\fP
+.br
+show the current LIF image used,
+.TP
+\(bu \fB< PILBox Link >\fP
+.br
+show the current device where the PILBox is connected,
+.TP
+\(bu \fB[START]\fP \fB[STOP ]\fP
+.br
+the state of emulation STARTed or STOPped.
+.sp
+The reverse video field is the active one. To select another field, use the TAB
+key.
+.br
+To change the value of value of LIF or Device, press ENTER, enter the new value and
+press ENTER to set.
+.br
+To START or STOP, just press ENTER as a flip-flop.
+.PP
+The left bottom window is the display area. It works as a printer or a video
+device. If \fB< Display:display.out >\fP is shown, all the text printed in
+this window will be also written in the file
+.I display.out
+located in the current directory.
+.PP
+The right bottom window is the scope window and it prints the all the frames
+seen on the HP-IL. If \fB< Scope:scope.out >\fP is shown, all the frames
+printed in this window will be also written in the file
+.I scope.out
+located in the current directory.
+.PP
+The following commands are accepted:
+.IP
+.nf
+  h - Display a help
+  v - Display the software version
+  a - Start the emulation
+  o - Stop the emulation
+  l - Change the LIF File
+  p - Change the device for the PILBox Link
+  s - Enable/Disable the HP-IL scope mode
+  S - Enable/Disable the HP-IL scope recording into the file scope.out
+  D - Enable/Disable the HP-IL display recording into the file display.out
+  q or Q - Close teh PILBox and exit
+.fi
+.PP
+To exit from
+.B ilper
+(1), just press Q or q.
+.SH FILES
+.I /dev/ttyUSBx
+.br
+.I display.out
+.br
+.I scope.out
+.SH REFERENCES
+.I http://www.jeffcalc.hp41.eu/hpil/index.html
+The HP-IL resource page and the PILBox from Jean-Francois Garnier.
+.sp
+.I http://www.hpmuseum.net/exhibit.php?catdoc=9
+The HP-IL system - Gerry Kane, Steve Harper and David Ushijima.
+.sp
+.I http://www.hp41.org/HPIL.cfm
+The reference site containing an extensive HP-IL documentation.
+.SH NOTES
+The PILBox needs the FTDI driver to be installed inside Linux or *Nix host.
+Recent Linux versions provide the driver as module to be dynamically loaded
+before to connect the PILBox. Also, moderns Linux distributions have tools
+to detect and insert the good module automatically when the PILBox is plugged.
+.PP
+The HP82160A HP-IL module is mandatory to use the PILBox with the HP-41C*.
+.SH BUGS
+The PILBox 115200 bauds optimization is not supported.
+.PP
+The escape sequences are not managed.
+.PP
+The addresses of the emulated peripherials are fixed. So the PILBox should be
+placed immediately on OUT plug of the HP-IL controller.
+.SH AUTHOR
+The ilper was first developped by Jean-Francois Garnier under Windows/PC.
+The port under Linux and *Nix platforms was done by Christophe Gottheimer.
+The ilper source code has been placed under the GNU Public License version 2.0
+

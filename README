@@ -1,0 +1,165 @@
+
+The PILBox is a beautiful hardware designed and built by Jean-Francois Garnier.
+
+This is the port of ilper-1.35 in C under Linux. One of tools used to manage
+the PILBox and the HP-IL emulation.
+
+Because I do not like Windows and I do not use it, I started to write the port of
+the ilper executable under Linux.
+It should work also under others *nix like the *BSD systems and MAC OS/X.
+
+It is tested under Linux Debian Etch 4.0r5.
+It has worked with a HP-75C and a HP-41CV + HP-82160A HP-IL module.
+You need to have a HP-82160A HP-IL module with the HP-41C* calculator to use this
+tool and the PILBox.
+
+Add for 1.40 version. 
+=====================
+PILBox is redisigned and built by Karel Koci with JF Garnier software. 
+Always a beautiful hardwareA indeed !
+Adding for this version, resizable main Window, some colors and a LIF file selector. 
+Works under Debian and other linuxes. Works well with a HP71. Try reversi game !
+
+
+1/ REQUIREMENTS
+
+  - It does not use X. So it may run on simple terminals.
+  - It uses the NCURSES library.
+  - It needs the FTDI serial driver to be installed. In Debian Etch 4.0r5 and in
+    the recent linux version, the FTDI driver is embedded inside the kernel.
+
+
+2/ INSTALLATION
+
+Extract the tarball in a working directory :
+   tar jxpf ilper-linux-<version>.tbz
+
+Go the ilper directory and build the executable :
+   cd ilper-linux-<version>
+   make
+   make install
+
+It installs the ilper executable to $HOME/bin. To change the executable install
+path, do :
+   make INSTALLDIR=<path-to-install> install
+The ilper will be copied to the directory <path-to-install>/bin.
+
+Be sure that the FTDI driver is installed and look on which device is connected
+the PILBox. It should be /dev/ttyUSB<x> where <x> is a number.
+On my computer, it is /dev/ttyUSB0.
+
+It should appear in the dmesg buffer :
+ohci_hcd 0000:00:02.0: wakeup
+usb 2-9: new full speed USB device using ohci_hcd and address 2
+usb 2-9: configuration #1 chosen from 1 choice
+usbcore: registered new driver usbserial
+drivers/usb/serial/usb-serial.c: USB Serial support registered for generic
+usbcore: registered new driver usbserial_generic
+drivers/usb/serial/usb-serial.c: USB Serial Driver core
+drivers/usb/serial/usb-serial.c: USB Serial support registered for FTDI USB Serial Device
+ftdi_sio 2-9:1.0: FTDI USB Serial Device converter detected
+drivers/usb/serial/ftdi_sio.c: Detected FT232BM
+usb 2-9: FTDI USB Serial Device converter now attached to ttyUSB0
+usbcore: registered new driver ftdi_sio
+drivers/usb/serial/ftdi_sio.c: v1.4.3:USB FTDI Serial Converters Driver
+
+And an entry is added in /dev :
+crw-rw---- 1 root dialout 188, 0 2011-03-31 21:09 /dev/ttyUSB0
+
+To access he /dev/ttyUSB<x> device, the user should belong in the dialout group.
+
+By default, the PILBox device is /dev/ttyUSB0 and the LIF file is HDRIVE1.DAT.
+This may be overwritten by setting the ILDEVICE=<device> or ILDISK=<LIF file>
+variables when launching make.
+
+To build ilper with the device '/dev/ttyUSB6', do make ILDEVICE=/dev/ttyUSB6
+To build ilper with the LIF file 'mydisk.lif', do make ILDISK=mydisk.lif
+
+If your terminal is badly configured, the border windows decoration may look
+strange and unreadable. In this case, just recompile the ilper sofware by setting
+the option USEASCII. To do so, make clean && make USEASCII=yes
+
+Take care of doing a make clean before changing ILDEVICE or ILDISK, or by setting
+or clearing the option USEASCII.
+
+
+3/ USAGE
+
+To run just launch the ilper tool with
+  <path of ilper>/ilper
+
+The ilper will show 3 windows as follow:
++-------------------------------[ ILPER 1.40.0 ]--------------------------------+
+| +-[ Mass Storage LIF File ]---------+   +-[ PILBox Link ]-------+             |
+| |LIF:HDRIVE1.DAT                    |   |Device:/dev/ttyUSB0    |     [STOP ] |
+| +-----------------------------------+   +-----------------------+             |
++-[ Display ]---------------------------+-[ Scope:scope.out ]-------------------+
+|                                       | IFC      AAU      AAD 01   TAD 01     |
+|T=  0.0000                             | SAI      DAB 2E   UNL      LAD 01     |
+|Z=  0.0000                             | UNL      AAU      AAD 01   TAD 01     |
+|Y=  0.0000                             | SAI      DAB 2E   LAD 01   UNL        |
+|X=  0.0000                             | AAU      AAD 01   TAD 01   SAI        |
+|                                       | DAB 2E   LAD 01   DAB 0D   DAB 0A     |
+
+The top window shows the current LIF file used, the current device where the
+PILBox is connected and the state of emulation STARTed or STOPped.
+The reverse video field is the active one. To select another field, use the TAB
+key or SHIFT+TAB key.
+To change the value of LIF or Device, press ENTER, enter the new value and
+press ENTER to set. The START or STOP, just press ENTER as a flip-flop.
+
+The following commands are accepted:
+  h - Display a help
+  v - Display the software version
+  a - Start the emulation
+  o - Stop the emulation
+  l - Change by editing the LIF File Name
+  L - Change by selecting the LIF File
+  p - Change the device for the PILBox Link
+  s - Enable/Disable the HP-IL scope mode
+  S - Enable/Disable the HP-IL scope recording into the file scope.out
+  d - Toggle between default Display (PRINTER) and Video interface MC00701A
+  D - Enable/Disable the HP-IL display recording into the file display.out
+  q or Q - Close the PILBox and exit
+
+To select a LIF FIle instead of entering its name, press the "L" key.
+You enter in a file browser. The following commands are:
+  <Left arrow>	 to go to parent directory
+  <Right Arrow>  to enter selected directory
+  <Enter> 	 to select the file
+  <Q>	   	 to quit without selecting a file (Filename is not changed)
+
+The left bottom window is the display area. It works as a printer or a video
+device. The "d" command is used to toggle between normal Display mode
+and a MC00701A interface with enhanced video mode. Default display is enhanced mode
+(see for example http://www.series80.org/Misc/MC00701A.pdf)
+Display recoding works only with normal display.
+
+The right bottom window is the scope window and it prints all the frames
+seen on the HP-IL. By default the scope window is hidden. You can enable/disable
+it by using the "s" command. "S" command only works when Scope window is enabled.
+
+To exit from ilper, just press Q or q. Confirm by choosing Y or N.
+
+
+4/ IMPORTANT
+
+The windows are dynamically resized when you change the terminal size.
+The display and scope windows content are cleared once resized.
+
+The footer displays a short help on the left and the terminal size on the right.
+The terminal size becomes red when terminal size is less then 80x24
+
+Be careful to not resize the terminal window when in File selection mode.
+
+The defaut baud rate is now set to 115200 bauds to work with a PILBOX.
+
+
+Please report bug or suggestions to this version to Jean-Michel Vansteene <jean-michel@vansteene.fr>
+Please report bug or suggestions for other versions to Christophe Gottheimer <cgh75015@gmail.com>
+
+
+Enjoy it !
+
+         Christophe Gottheimer
+	 Jean-Michel Vansteene
