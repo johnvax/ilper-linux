@@ -113,8 +113,8 @@ The following commands are accepted:
   v - Display the software version
   a - Start the emulation
   o - Stop the emulation
-  l - Change by editing the LIF File Name
-  L - Change by selecting the LIF File
+  l - Change the LIF File (Edit)
+  L - Select the LIF File (Browser)
   p - Change the device for the PILBox Link
   s - Enable/Disable the HP-IL scope mode
   S - Enable/Disable the HP-IL scope recording into the file scope.out
@@ -130,8 +130,8 @@ You enter in a file browser. The following commands are:
   <Q>	   	 to quit without selecting a file (Filename is not changed)
 
 The left bottom window is the display area. It works as a printer or a video
-device. The "d" command is used to toggle between normal Display mode
-and a MC00701A interface with enhanced video mode. Default display is enhanced mode
+device. Press "d" to toggle between normal Display mode and a MC00701A interface
+with enhanced video mode. Default display is enhanced mode
 (see for example http://www.series80.org/Misc/MC00701A.pdf)
 Display recoding works only with normal display.
 
@@ -150,9 +150,10 @@ The display and scope windows content are cleared once resized.
 The footer displays a short help on the left and the terminal size on the right.
 The terminal size becomes red when terminal size is less then 80x24
 
-Be careful to not resize the terminal window when in File selection mode.
+Be careful to not resize the terminal window when in LIF File browser mode.
 
 The defaut baud rate is now set to 115200 bauds to work with a PILBOX.
+Maybe not yet optimized, but fully functional.
 
 
 Please report bug or suggestions to this version to Jean-Michel Vansteene <jean-michel@vansteene.fr>

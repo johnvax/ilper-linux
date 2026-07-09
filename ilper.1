@@ -1,4 +1,4 @@
-.TH ilper 1  1-Mar-2012 "PILBox peripherials emulation" ""
+.TH ilper 1  9-Jul-2026 "PILBox peripherials emulation" ""
 .SH NAME
 ilper \- Mass storage and Video emulation for the PILBox
 .SH SYNOPSIS
@@ -7,7 +7,8 @@ ilper \- Mass storage and Video emulation for the PILBox
 .B ilper
 (1) is an peripherials emulator for usage with the PILBox. The PILBox is
 a USB/HP-IL converter to use with HP-IL controller, as the HP-41C*, HP-75C
-and HP71B. The PILBox is designed and build by Jean-Francois Garnier.
+and HP71B. The new PILBox is designed and built by Karel Koci and was originally
+designed by Jean-Francois Garnier.
 .PP
 It emulates a video display at address 1 and a Mass storage at address 2.
 .PP
@@ -17,13 +18,11 @@ When launched,
 .B ilper
 (1) will show 3 windows as follow:
 .nf
-+-------------------------------[ ILPER 1.35.1 ]--------------------------------+
-|                                                                               |
-| +-< Mass Storage LIF File >---------+   +-< PILBox Link >-------+             |
++-------------------------------[ ILPER 1.40.0 ]--------------------------------+
+| +-[ Mass Storage LIF File >---------+   +-[ PILBox Link >-------+             |
 | |LIF:HDRIVE1.DAT                    |   |Device:/dev/ttyUSB0    |     [STOP ] |
 | +-----------------------------------+   +-----------------------+             |
-|                                                                               |
-+-< Display >---------------------------+-< Scope:scope.out >-------------------+
++-[ Display ]---------------------------+-[ Scope:scope.out ]-------------------+
 |                                       | IFC      AAU      AAD 01   TAD 01     |
 |T=  0.0000                             | SAI      DAB 2E   UNL      LAD 01     |
 |Z=  0.0000                             | UNL      AAU      AAD 01   TAD 01     |
@@ -48,23 +47,38 @@ the state of emulation STARTed or STOPped.
 .sp
 The reverse video field is the active one. To select another field, use the TAB
 key.
-.br
-To change the value of value of LIF or Device, press ENTER, enter the new value and
-press ENTER to set.
-.br
+.PP
 To START or STOP, just press ENTER as a flip-flop.
 .PP
+To change the value of either LIF or Device, select the field by using TAB
+or shift TAB then press ENTER. Enter the new value and press ENTER to set.
+To select a LIF File in a file browser, press L key. Then use:
+.IP
+.nf
+  <Left arrow>   to go to parent directory
+  <Right Arrow>  to enter selected directory
+  <Enter>        to select the file
+  <Q>            to quit without selecting a file (Filename is not changed)
+.PP
 The left bottom window is the display area. It works as a printer or a video
-device. If \fB< Display:display.out >\fP is shown, all the text printed in
+device. If \fB[ Display:display.out ]\fP is shown, all the text printed in
 this window will be also written in the file
 .I display.out
 located in the current directory.
+.PP
+Press "d" to toggle between normal Display mode and a MC00701A interface
+with enhanced video mode. Default display is enhanced mode
+(see for example http://www.series80.org/Misc/MC00701A.pdf)
+Display recoding works only with normal display.
 .PP
 The right bottom window is the scope window and it prints the all the frames
 seen on the HP-IL. If \fB< Scope:scope.out >\fP is shown, all the frames
 printed in this window will be also written in the file
 .I scope.out
 located in the current directory.
+.PP
+By default the scope window is hidden. You can enable/disable
+it by using the "s" command. "S" command only works when Scope window is enabled.
 .PP
 The following commands are accepted:
 .IP
@@ -73,10 +87,12 @@ The following commands are accepted:
   v - Display the software version
   a - Start the emulation
   o - Stop the emulation
-  l - Change the LIF File
+  l - Change the LIF File (Edit)
+  L - Select the LIF File (Browser)
   p - Change the device for the PILBox Link
   s - Enable/Disable the HP-IL scope mode
   S - Enable/Disable the HP-IL scope recording into the file scope.out
+  d - Toggle betweeen default Display (PRINTER) and Video interface MC00701A
   D - Enable/Disable the HP-IL display recording into the file display.out
   q or Q - Close teh PILBox and exit
 .fi
@@ -84,6 +100,14 @@ The following commands are accepted:
 To exit from
 .B ilper
 (1), just press Q or q.
+.PP
+The windows are dynamically resized when you change the terminal size.
+The display and scope windows content are cleared once resized.
+
+The footer displays a short help on the left and the terminal size on the right.
+The terminal size becomes red when size is less then 80x24
+
+Be careful to not resize the terminal window when in LIF File browser mode.
 .SH FILES
 .I /dev/ttyUSBx
 .br
@@ -116,5 +140,6 @@ placed immediately on OUT plug of the HP-IL controller.
 .SH AUTHOR
 The ilper was first developped by Jean-Francois Garnier under Windows/PC.
 The port under Linux and *Nix platforms was done by Christophe Gottheimer.
+The updates are from Jean-Michel Vansteene.
 The ilper source code has been placed under the GNU Public License version 2.0
 
