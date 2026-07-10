@@ -79,7 +79,7 @@ static int  nbe = 2560; // number of 256-byte sectors
    // nbe = 512;   // number of 256-byte sectors
 
 /* String buffers. */
-#define BUFLEN  PATH_MAX
+#define BUFLEN  256
 static char  buf0[BUFLEN];  // buffer 0 
 static char  buf1[BUFLEN];  // buffer 1 
 static char *hdiscfile;  // path to disk image file 

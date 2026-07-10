@@ -524,7 +524,7 @@ static void enable_handlers()
     sigaction(SIGWINCH, &sa, NULL);
 }
 
-# if 0 
+# if 0
 static void disable_handlers()
 {
     struct sigaction sa;
@@ -1590,11 +1590,9 @@ int main(int argc, char **argv)
 			{
 			  nodelay( stdscr, TRUE );
 			  werase( wsc );
-			  wrefresh( wsc );
 			  werase( wdv );
-			  wrefresh( wdv );
 			  werase( wdp );
-			  wrefresh( wdp );
+			  refresh_windows ();
 			  init_hpil();
 			}
 		    }
@@ -1603,6 +1601,8 @@ int main(int argc, char **argv)
 		{
 		  nodelay( stdscr, FALSE ); 	// 
 		  timeout (100);		// non-blocking with 100ms
+
+		  refresh_windows();
 		  if( -1 != ilfd )
 		    {
 		      InitPILBox( TDIS );
