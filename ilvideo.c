@@ -27,6 +27,8 @@
 // ------------------------------------------------------------------------------
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "ilper.h"
 
     // HP-IL data and variables */
@@ -44,6 +46,386 @@ static int fvideo;  // HP-IL state machine flags:
     // ( this choice comes from my original 6502 assembly code [PLTERx and ILPERx applications, 1984-1988]
     //   that used the efficient BIT opcode to test both bit 6 and 7)
 static int ptsdi;   // output pointer for device ID 
+
+// Display
+static int16_t m_nBufRows, m_nBufCols, m_nVisCols, m_nVisRows;
+static int16_t m_xCurPos, m_yCurPos;
+static int8_t m_nEsc, m_nBufLine;
+static int8_t m_bAutoCrlf;
+static char  *m_pbyBuffer;
+#define CHR_AT(x,y)(m_pbyBuffer[(m_nBufLine + (y)) * m_nVisCols + (x)])
+
+extern DISP_PANEL panels[];	// panels[1] is wdv (MC00701A)
+
+//
+// Init Display (MC00701A)
+//
+void initDisplay (WINDOW *w)
+{
+  getmaxyx(w, m_nBufRows, m_nBufCols);
+  m_nVisCols = m_nBufCols;
+  m_nVisRows = m_nBufRows;
+  
+  m_xCurPos = m_yCurPos = 0;
+  m_nEsc = 0;
+  m_nBufLine = 0;
+  m_bAutoCrlf = FALSE;
+
+  m_pbyBuffer = (char *) malloc (m_nBufCols * m_nBufRows);
+  if (m_pbyBuffer)  memset ((char *)m_pbyBuffer, ' ', m_nBufCols * m_nBufRows);
+  else {
+    endwin ();
+    fprintf(stderr, "Error initialising video buffer.\n");
+    exit (-1);
+  }
+}
+
+//
+// Set Cursor Position on Display window
+//
+void SetCursorPos (WINDOW *w, int x, int y)
+{
+  m_xCurPos = x;
+  m_yCurPos = y;
+  
+  wmove (w, y, x);
+}
+
+//
+// move cursor left
+//
+void CursorLeft (WINDOW *w)
+{
+  int16_t x = m_xCurPos;
+  int16_t y = m_yCurPos;
+
+  // nove cursor left
+  if (x-- <= 0)			// already at first column
+	{
+	  x  = m_nVisCols - 1; 	// goto last column
+	  
+	  // move cursor up
+	  if (y-- <= 0)		// already at first row
+	    {
+	      x = y = 0;	// set cursur to (0,0)
+	    }
+	}
+  SetCursorPos (w, x, y);
+  return;
+}
+
+//
+// move cursor right
+//
+void CursorRight(WINDOW *w)
+{
+  int16_t x = m_xCurPos;
+  int16_t y = m_yCurPos;
+  
+  if (x++ == m_nVisCols - 1)
+    {
+      x = 0;
+      if (y++ == m_nVisRows - 1)
+	y = 0;
+    }
+  SetCursorPos (w, x, y);
+  return;
+}
+
+//
+// clrScr
+// Clear current window
+void clrScr (WINDOW *w)
+{
+  werase (w);
+  m_xCurPos = m_yCurPos = 0;			// cursor at (0,0)
+}
+
+// 
+// ClrVideo()
+// clear the display box
+// 
+void ClrVideo( void )
+{
+  clrScr( panels[1].w );
+  wrefresh( panels[1].w );
+}
+
+//
+// clrScrFrom
+// Clear current window from cursor point to end of window
+void clrScrFrom (WINDOW *w)
+{
+  wclrtobot (w);
+  //  wrefresh(w);
+}
+
+//
+// Soft reset
+// empty display & screen buffer and show replace cursor at (0,0)
+//
+void SoftReset(WINDOW *w)
+{
+  // empty display buffer
+  memset ((char *)m_pbyBuffer, ' ', m_nBufCols * m_nBufRows);
+  m_nBufLine = 0;							// view display buffer from top
+
+  clrScr (w);
+  return;
+}
+
+///
+// Device Clear
+// empty display & screen buffer and show replace cursor at (0,0)
+//
+void ClearDevice(WINDOW *w)
+{
+  SoftReset(w);				// then do the soft reset
+  return;
+}
+
+//
+// eval line feed
+//
+void EvalLF(WINDOW *w)
+{
+  if (++m_yCurPos == m_nVisRows)	// end of screen
+    {
+      m_yCurPos = m_nVisRows - 1; 	// set cursor to last line
+      scroll(w);   	          	//
+    }
+  return;
+}
+
+//
+// synchronize screen with display memory buffer
+//
+void ScrollScreen()
+{
+  //  vertScroll ();
+  if (m_nBufLine++ == (m_nBufRows- m_nVisRows)) {
+    m_nBufLine = 0;
+    memset ((char *)m_pbyBuffer, ' ', m_nBufCols * m_nBufRows);
+  }
+}
+
+// ******************************************
+// printChar (w, ch)
+//
+// Print char on Screen and writes in file
+// and internal Buffer
+// ******************************************
+void printChar (WINDOW *w, char ch)
+{
+  if( (160 <= ((int)ch & 0xFF)) && (254 >= ((int)ch & 0xFF)) )
+    wattron( w, A_REVERSE );
+  wprintw( w, "%c", (ch & 0x7F) );
+  if( (160 <= ((int)ch & 0xFF)) && (254 >= ((int)ch & 0xFF)) )
+    wattroff( w, A_REVERSE );
+  
+  CHR_AT (m_xCurPos, m_yCurPos) = ch;	
+}
+
+// ******************************************
+// VideoStr(ch)
+//
+// display a character in the MC00701A window
+// convert some HP41 character
+// ******************************************
+void VideoStr( char ch )
+{
+  int i, j;
+
+  if (panels[1].hide)
+    return;
+
+  if( m_nEsc == 0 )
+{
+    switch( (int)ch & 0xFF )
+      {
+      // convert special HP41 characters to regular ASCII
+      case 0:
+	ch = '*';
+	break;
+	
+      case 8:
+	CursorLeft(panels[1].w);
+	m_bAutoCrlf = FALSE;
+	break;
+
+      case 10:
+	ch = '\0';
+	if (!m_bAutoCrlf)		// not evaluated automatic CR LF
+	  {
+	    EvalLF(panels[1].w);	// eval LF
+	  }
+	m_bAutoCrlf = FALSE;		// reset automatic CR LF flag
+	break;
+      case 12: ch = 'u'; break;   // micron
+      case 13:
+	m_xCurPos = 0;
+	ch = '\0';
+	break;
+      case 28: ch = 's'; break;   // sigma
+      case 27: m_nEsc = 1; break;   // escape sequences
+      case 29: ch = '#'; break;   // different
+      case 124: ch = 'a'; break;  // angle sign
+      case 127: ch = '`'; break;  // append
+      default:
+	if( (((int)ch & 0xFF) > 127) &&
+	    ((((int)ch & 0xFF) < 160) || (((int)ch & 0xFF) == 255)) )
+	  {
+	    ch = '.';  // non-printable characters
+	  }
+	break;
+      }
+    if( ( m_nEsc == 0 ) && ch )
+      {
+	printChar (panels[1].w, ch);
+
+	// move cursor forward : end of column?
+	m_bAutoCrlf = FALSE;
+	if (++m_xCurPos == m_nVisCols)
+	  {
+	    m_xCurPos = 0;       // eval CR
+	    EvalLF(panels[1].w); // eval LF
+	    m_bAutoCrlf = TRUE;  // evaluated automatic CR LF
+	  }
+      }
+    }
+  else
+    {
+      if (m_nEsc > 0)						// escape sequence
+	{
+	  --m_nEsc;						// handled ESC sequence
+
+	  switch (m_nEsc)
+	    {
+	    case 0: 						// single ESC
+	      switch ( (int)ch & 0xFF)
+		{
+		case 0:
+		  break;
+
+		case '<': // 0x3C
+		  curs_set (0);
+		  break;
+		  
+		case '>':  // 0x3E
+		  curs_set (1);
+		  break;
+		  
+		case 'A': // Cursor Up
+		  if (m_yCurPos-- <= 0)		// move cursor up
+		    m_yCurPos = 0;
+		  break;
+		  
+		case 'B': // Cursor Down
+		  if (m_yCurPos++ == m_nVisRows - 1)
+		    m_yCurPos = m_nVisRows - 1;
+		  break;
+
+		case 'C': // Cursor Right
+		  CursorRight (panels[1].w);
+		  break;
+		  break;
+		  
+		case 'D': // 0x44 ; Cursor Left
+		  CursorLeft(panels[1].w);
+		  break;
+
+		case 'E': // 0x45 ; Device Clear
+		  SoftReset(panels[1].w);
+		  break;
+
+		case 'H': // 0x48 ; Cursor Home
+		  m_xCurPos = m_yCurPos = 0;
+		  break;
+		  
+		case 'J': // Clear screen memory from cursor to end of page
+		  clrScrFrom(panels[1].w);
+		  // then clear the lines after current position
+		  for (j = m_yCurPos; j < m_nVisRows; ++j)
+		    {
+		      for (i = m_xCurPos; i < m_nVisCols; ++i)
+			{
+			  CHR_AT(i,j) = ' ';
+			}
+		      i = 0;			// clear all other lines from beginning
+		    }
+		  break;
+
+		case 'K':	// Clear screen memory from cursor to end of line
+		  for (i = m_xCurPos; i < m_nVisCols; ++i)
+		    {
+		      CHR_AT(i,m_yCurPos) = ' ';
+		    }
+		  wclrtoeol (panels[1].w);
+		  break;
+
+		case 'N': // Enable insert character mode
+//		  m_eCurState = CUR_INSERT;
+//		  m_bInsertMode = true;// enable insert character mode
+		  curs_set (1);
+		  break;
+
+		case 'O': //Delete Character
+		  for (i = m_xCurPos; i < m_nBufCols - 1; ++i)
+		    {
+		      printChar (panels[1].w, CHR_AT (i+1,m_yCurPos));
+		    }
+		  printChar (panels[1].w, ' ');
+		  break;
+		  
+		case 'Q': // Switch to insert cursor, but do not enable insert mode
+//		  m_eCurState = CUR_INSERT;
+		  curs_set (1);
+		  break;
+		  
+		case 'R': // 0x52 ; Disable Insert Character Mode (Default.)
+//		  m_eCurState = CUR_REPLACE;
+//		  m_bInsertMode = false;   // disable insert character mode
+		  curs_set (2);
+		  break;
+
+		case 'S': // Scroll up (move window down)
+		  break;
+
+		case 'T': // Scroll down (move window up)
+		  break;
+		  
+		case '%': // Cursor To Address
+		  m_nEsc = 3;					// still need two arguments, fetch column next
+		  break;
+
+		case 'e': // Hard reset
+		  ClearDevice(panels[1].w);
+		  break;
+
+		default: // illegal ESC sequence
+		  break;					// ignore sequence
+		}
+	      break;
+
+	    case 2: // Cursor To Address, m column argument
+	      m_xCurPos = ch % m_nVisCols;
+	      m_nEsc = 2;						// still need one argument, fetch row next
+	      break;
+	    case 1:  // Cursor To Address, n row argument
+	      m_yCurPos = ch % m_nVisRows;
+	      m_nEsc = 0;						// handled ESC sequence
+	      break;
+
+	    default:
+	      break;		
+	    }
+	  m_bAutoCrlf = FALSE;
+	}
+    }
+  
+  SetCursorPos (panels[1].w, m_xCurPos, m_yCurPos);
+  wrefresh( panels[1].w );
+}
 
 // ****************************************** 
 // init_ilvideo()                           

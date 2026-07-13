@@ -47,6 +47,7 @@
 #include <locale.h>
 #include <signal.h>
 #include <ncurses.h>
+#include <libgen.h>
 
 #include "ilper.h"
 
@@ -123,14 +124,6 @@ static RICHTEXT help [] = {
   { NULL, 0, NULL, 0 }
 };
 
-// Display
-static int16_t m_nBufRows, m_nBufCols, m_nVisCols, m_nVisRows;
-static int16_t m_xCurPos, m_yCurPos;
-static int8_t m_nEsc, m_nBufLine;
-static int8_t m_bAutoCrlf;
-static char  *m_pbyBuffer;
-#define CHR_AT(x,y)(m_pbyBuffer[(m_nBufLine + (y)) * m_nVisCols + (x)])
-
 volatile sig_atomic_t pending_usr1;
 volatile sig_atomic_t pending_winch;
 void init_window ();
@@ -149,7 +142,7 @@ static void raise_window_r ( int nlin, int ncol, const char *title, RICHTEXT tex
   wrwin = newwin( nlin, ncol, (y - nlin) / 2, (x - ncol) / 2 );
   wborder( wrwin, boxc[0], boxc[1], boxc[2], boxc[3], boxc[4], boxc[5], boxc[6], boxc[7] );
   wattron (wrwin, COLOR_PAIR(CYAN));
-  mvwprintw( wrwin, 0, 4, "[ %s ]", title );
+  mvwprintw( wrwin, 0, 2, "[ %s ]", title );
   wattroff (wrwin, COLOR_PAIR(CYAN));
   wrefresh( wrwin );
   wdrwin = derwin( wrwin, nlin - 2, ncol - 2, 1, 1);
@@ -176,7 +169,7 @@ static void raise_window_r ( int nlin, int ncol, const char *title, RICHTEXT tex
 // format and arguments
 // justify: 0=left, 1=middle, 2=right
 // ******************************************
-static void raise_window( int nlin, int ncol, const char *title, int justify, const char *fmt, ... )
+static void raise_window( int nlin, int ncol, const char *title, const int color, int justify, const char *fmt, ... )
 {
   va_list  ap;
   int i, l;
@@ -185,9 +178,9 @@ static void raise_window( int nlin, int ncol, const char *title, int justify, co
 
   wrwin = newwin( nlin, ncol, (y - nlin) / 2, (x - ncol) / 2 );
   wborder( wrwin, boxc[0], boxc[1], boxc[2], boxc[3], boxc[4], boxc[5], boxc[6], boxc[7] );
-  wattron (wrwin, COLOR_PAIR(CYAN));
-  mvwprintw( wrwin, 0, 4, "[ %s ]", title );
-  wattroff (wrwin, COLOR_PAIR(CYAN));
+  wattron (wrwin, color);
+  mvwprintw( wrwin, 0, 2, "[ %s ]", title );
+  wattroff (wrwin, color);
   wrefresh( wrwin );
   wdrwin = derwin( wrwin, nlin - 2, ncol - 2, 1, 1);
   va_start( ap, fmt );
@@ -339,7 +332,8 @@ static bool yesno_window (char *str)
 	  yes = TRUE;
 	  leave = TRUE;
 	  break;
-	
+
+	case 0x1b:
 	case 'N':
 	case 'n':
 	  yes = FALSE;
@@ -397,7 +391,7 @@ void add_display_hdr ()
     }
 
   if (temp0->hide) {
-    mvwprintw ( main_window, 4, 2, "[ Display %s ]", "MC00701A" );
+    mvwprintw ( main_window, 4, 2, "[ Display:%s ]", "MC00701A" );
     wattroff ( main_window, COLOR_PAIR(YELLOW));
   } else {
     if( -1 != fddp )
@@ -484,7 +478,7 @@ if (!issc) {
 static void sync_signals()
 {
   if (pending_usr1) {
-    /* SIGUSR1 received: refresh directory listing. */
+    /* SIGUSR1 received: RFU. */
     pending_usr1 = 0;
   }
   if (pending_winch) {
@@ -562,170 +556,6 @@ void DisplayMnemo( char *mnemo )
     }
 }
 
-//
-// Init Display (MC00701A)
-//
-void initDisplay (WINDOW *w)
-{
-  getmaxyx(w, m_nBufRows, m_nBufCols);
-  m_nVisCols = m_nBufCols;
-  m_nVisRows = m_nBufRows;
-  
-  m_xCurPos = m_yCurPos = 0;
-  m_nEsc = 0;
-  m_nBufLine = 0;
-  m_bAutoCrlf = FALSE;
-
-  m_pbyBuffer = (char *) malloc (m_nBufCols * m_nBufRows);
-  if (m_pbyBuffer)  memset ((char *)m_pbyBuffer, ' ', m_nBufCols * m_nBufRows);
-  else {
-    endwin ();
-    fprintf(stderr, "Error initialising video buffer.\n");
-    exit (-1);
-  }
-}
-
-//
-// Set Cursor Position on Display window
-//
-void SetCursorPos (WINDOW *w, int x, int y)
-{
-  m_xCurPos = x;
-  m_yCurPos = y;
-  
-  wmove (w, y, x);
-}
-
-//
-// move cursor left
-//
-void CursorLeft (WINDOW *w)
-{
-  int16_t x = m_xCurPos;
-  int16_t y = m_yCurPos;
-
-  // nove cursor left
-  if (x-- <= 0)			// already at first column
-	{
-	  x  = m_nVisCols - 1; 	// goto last column
-	  
-	  // move cursor up
-	  if (y-- <= 0)		// already at first row
-	    {
-	      x = y = 0;	// set cursur to (0,0)
-	    }
-	}
-  SetCursorPos (w, x, y);
-  return;
-}
-
-//
-// move cursor right
-//
-void CursorRight(WINDOW *w)
-{
-  int16_t x = m_xCurPos;
-  int16_t y = m_yCurPos;
-  
-  if (x++ == m_nVisCols - 1)
-    {
-      x = 0;
-      if (y++ == m_nVisRows - 1)
-	y = 0;
-    }
-  SetCursorPos (w, x, y);
-  return;
-}
-
-//
-// clrScr
-// Clear current window
-void clrScr (WINDOW *w)
-{
-  werase (w);
-  m_xCurPos = m_yCurPos = 0;			// cursor at (0,0)
-}
-
-//
-// clrScrFrom
-// Clear current window from cursor point to end of window
-void clrScrFrom (WINDOW *w)
-{
-  wclrtobot (w);
-  //  wrefresh(w);
-}
-
-//
-// Soft reset
-// empty display & screen buffer and show replace cursor at (0,0)
-//
-void SoftReset(WINDOW *w)
-{
-  // empty display buffer
-  memset ((char *)m_pbyBuffer, ' ', m_nBufCols * m_nBufRows);
-  m_nBufLine = 0;							// view display buffer from top
-
-  clrScr (w);
-  return;
-}
-
-///
-// Device Clear
-// empty display & screen buffer and show replace cursor at (0,0)
-//
-void ClearDevice(WINDOW *w)
-{
-  SoftReset(w);				// then do the soft reset
-  return;
-}
-
-//
-// eval line feed
-//
-void EvalLF(WINDOW *w)
-{
-  if (++m_yCurPos == m_nVisRows)	// end of screen
-    {
-      m_yCurPos = m_nVisRows - 1; 	// set cursor to last line
-      scroll(w);   	          	//
-    }
-  return;
-}
-
-//
-// synchronize screen with display memory buffer
-//
-void ScrollScreen()
-{
-  //  vertScroll ();
-  if (m_nBufLine++ == (m_nBufRows- m_nVisRows)) {
-    m_nBufLine = 0;
-    memset ((char *)m_pbyBuffer, ' ', m_nBufCols * m_nBufRows);
-  }
-}
-
-// ******************************************
-// printChar (w, ch)
-//
-// Print char on Screen and writes in file
-// and internal Buffer
-// ******************************************
-void printChar (WINDOW *w, char ch)
-{
-  if( -1 != fddp )
-    {
-      char dp = (ch & 0x7F);
-      write( fddp, &dp, sizeof(dp) );
-    }
-  if( (160 <= ((int)ch & 0xFF)) && (254 >= ((int)ch & 0xFF)) )
-    wattron( w, A_REVERSE );
-  wprintw( w, "%c", (ch & 0x7F) );
-  if( (160 <= ((int)ch & 0xFF)) && (254 >= ((int)ch & 0xFF)) )
-    wattroff( w, A_REVERSE );
-  
-  CHR_AT (m_xCurPos, m_yCurPos) = ch;	
-}
-
 // ******************************************
 // DisplayStr(ch)
 //
@@ -763,7 +593,16 @@ void DisplayStr( char ch )
       {
 	if( ch )
 	  {
-	    printChar (wdp, ch);
+	    if( -1 != fddp )
+	      {
+		char dp = (ch & 0x7F);
+		write( fddp, &dp, sizeof(dp) );
+	      }
+	    if( (160 <= ((int)ch & 0xFF)) && (254 >= ((int)ch & 0xFF)) )
+	      wattron( wdp, A_REVERSE );
+	    wprintw( wdp, "%c", (ch & 0x7F) );
+	    if( (160 <= ((int)ch & 0xFF)) && (254 >= ((int)ch & 0xFF)) )
+	      wattroff( wdp, A_REVERSE );
 	    wrefresh( wdp );
 	  }
       }
@@ -772,229 +611,6 @@ void DisplayStr( char ch )
     {
       fesc = 0; // ignore escape sequences (for the HP71)
     }
-}
-
-// ******************************************
-// VideoStr(ch)
-//
-// display a character in the MC00701A window
-// convert some HP41 character
-// ******************************************
-void VideoStr( char ch )
-{
-  int i, j;
-
-  if (panels[1].hide)
-    return;
-
-  if( m_nEsc == 0 )
-{
-    switch( (int)ch & 0xFF )
-      {
-      // convert special HP41 characters to regular ASCII
-      case 0:
-	ch = '*';
-	break;
-	
-      case 8:
-	CursorLeft(wdv);
-	m_bAutoCrlf = FALSE;
-	break;
-
-      case 10:
-	ch = '\0';
-	if (!m_bAutoCrlf)		// not evaluated automatic CR LF
-	  {
-	    EvalLF(wdv);			// eval LF
-	  }
-	m_bAutoCrlf = FALSE;		// reset automatic CR LF flag
-	break;
-      case 12: ch = 'u'; break;   // micron
-      case 13:
-	m_xCurPos = 0;
-	ch = '\0';
-	break;
-      case 28: ch = 's'; break;   // sigma
-      case 27: m_nEsc = 1; break;   // escape sequences
-      case 29: ch = '#'; break;   // different
-      case 124: ch = 'a'; break;  // angle sign
-      case 127: ch = '`'; break;  // append
-      default:
-	if( (((int)ch & 0xFF) > 127) &&
-	    ((((int)ch & 0xFF) < 160) || (((int)ch & 0xFF) == 255)) )
-	  {
-	    ch = '.';  // non-printable characters
-	  }
-	break;
-      }
-    if( ( m_nEsc == 0 ) && ch )
-      {
-	printChar (wdv, ch);
-
-	// move cursor forward : end of column?
-	m_bAutoCrlf = FALSE;
-	if (++m_xCurPos == m_nVisCols)
-	  {
-	    m_xCurPos = 0;       // eval CR
-	    EvalLF(wdv);            // eval LF
-	    m_bAutoCrlf = TRUE;  // evaluated automatic CR LF
-	  }
-      }
-    }
-  else
-    {
-      if (m_nEsc > 0)						// escape sequence
-	{
-	  --m_nEsc;						// handled ESC sequence
-
-	  switch (m_nEsc)
-	    {
-	    case 0: 						// single ESC
-	      switch ( (int)ch & 0xFF)
-		{
-		case 0:
-		  break;
-
-		case '<': // 0x3C
-		  curs_set (0);
-		  break;
-		  
-		case '>':  // 0x3E
-		  curs_set (1);
-		  break;
-		  
-		case 'A': // Cursor Up
-		  if (m_yCurPos-- <= 0)		// move cursor up
-		    m_yCurPos = 0;
-		  break;
-		  
-		case 'B': // Cursor Down
-		  if (m_yCurPos++ == m_nVisRows - 1)
-		    m_yCurPos = m_nVisRows - 1;
-		  break;
-
-		case 'C': // Cursor Right
-		  CursorRight (wdv);
-		  break;
-		  break;
-		  
-		case 'D': // 0x44 ; Cursor Left
-		  CursorLeft(wdv);
-		  break;
-
-		case 'E': // 0x45 ; Device Clear
-		  SoftReset(wdv);
-		  break;
-
-		case 'H': // 0x48 ; Cursor Home
-		  m_xCurPos = m_yCurPos = 0;
-		  break;
-		  
-		case 'J': // Clear screen memory from cursor to end of page
-		  clrScrFrom(wdv);
-		  // then clear the lines after current position
-		  for (j = m_yCurPos; j < m_nVisRows; ++j)
-		    {
-		      for (i = m_xCurPos; i < m_nVisCols; ++i)
-			{
-			  CHR_AT(i,j) = ' ';
-			}
-		      i = 0;			// clear all other lines from beginning
-		    }
-		  break;
-
-		case 'K':	// Clear screen memory from cursor to end of line
-		  for (i = m_xCurPos; i < m_nVisCols; ++i)
-		    {
-		      CHR_AT(i,m_yCurPos) = ' ';
-		    }
-		  wclrtoeol (wdv);
-		  break;
-
-		case 'N': // Enable insert character mode
-//		  m_eCurState = CUR_INSERT;
-//		  m_bInsertMode = true;// enable insert character mode
-		  curs_set (1);
-		  break;
-
-		case 'O': //Delete Character
-		  for (i = m_xCurPos; i < m_nBufCols - 1; ++i)
-		    {
-		      printChar (wdv, CHR_AT (i+1,m_yCurPos));
-		    }
-		  printChar (wdv, ' ');
-		  break;
-		  
-		case 'Q': // Switch to insert cursor, but do not enable insert mode
-//		  m_eCurState = CUR_INSERT;
-		  curs_set (1);
-		  break;
-		  
-		case 'R': // 0x52 ; Disable Insert Character Mode (Default.)
-//		  m_eCurState = CUR_REPLACE;
-//		  m_bInsertMode = false;   // disable insert character mode
-		  curs_set (2);
-		  break;
-
-		case 'S': // Scroll up (move window down)
-		  break;
-
-		case 'T': // Scroll down (move window up)
-		  break;
-		  
-		case '%': // Cursor To Address
-		  m_nEsc = 3;					// still need two arguments, fetch column next
-		  break;
-
-		case 'e': // Hard reset
-		  ClearDevice(wdv);
-		  break;
-
-		default: // illegal ESC sequence
-		  break;					// ignore sequence
-		}
-	      break;
-
-	    case 2: // Cursor To Address, m column argument
-	      m_xCurPos = ch % m_nVisCols;
-	      m_nEsc = 2;						// still need one argument, fetch row next
-	      break;
-	    case 1:  // Cursor To Address, n row argument
-	      m_yCurPos = ch % m_nVisRows;
-	      m_nEsc = 0;						// handled ESC sequence
-	      break;
-
-	    default:
-	      break;		
-	    }
-	  m_bAutoCrlf = FALSE;
-	}
-    }
-  
-  SetCursorPos (wdv, m_xCurPos, m_yCurPos);
-  wrefresh( wdv );
-}
-
-// ******************************************
-// ClrDisplay()
-//
-// clear the display box
-// ******************************************
-void ClrDisplay( void )
-{
-  clrScr( wdp );
-  wrefresh( wdp );
-}
-
-// ******************************************
-// ClrVideo()
-//
-// clear the display box
-// ******************************************
-void ClrVideo( void )
-{
-  clrScr( wdv );
-  wrefresh( wdv );
 }
 
 // ******************************************
@@ -1145,7 +761,7 @@ void init_term ()
   noecho();
   //  nodelay (stdscr, TRUE);
   keypad( stdscr, TRUE );
-  curs_set(FALSE); /* Hide blinking cursor. */
+  curs_set (0); /* Hide cursor */
 
   if (has_colors ()) {
     start_color();
@@ -1259,6 +875,7 @@ void init_window ()
   mvwaddch ( main_window, 4, x - 1, boxc[9] );
 
   /* LIF rectangle */
+  wattron ( main_window, COLOR_PAIR(YELLOW) );
   mvwhline ( main_window, 1, 3, boxc[2], x - (x / 2) - 6 );
   mvwhline ( main_window, 3, 3, boxc[2], x - (x / 2) - 6 );
   mvwvline ( main_window, 2, 2, boxc[0], 1 );
@@ -1267,9 +884,7 @@ void init_window ()
   mvwaddch ( main_window, 3, x - (x / 2) - 3, boxc[7] );
   mvwaddch ( main_window, 1, 2, boxc[4] );
   mvwaddch ( main_window, 3, 2, boxc[6] );
-  wattron ( main_window, COLOR_PAIR(YELLOW));
   mvwprintw( main_window, 1, 4, "[ Mass Storage LIF File ]" );
-  wattroff ( main_window, COLOR_PAIR(YELLOW));
 
   /* PILBOX link rectangle */
   mvwhline ( main_window, 1, x - (x / 2) + 2, boxc[2], (x / 2) - 16 );
@@ -1280,7 +895,6 @@ void init_window ()
   mvwaddch ( main_window, 3, x - 15, boxc[7] );
   mvwaddch ( main_window, 1, x - (x / 2) + 1, boxc[4] );
   mvwaddch ( main_window, 3, x - (x / 2) + 1, boxc[6] );
-  wattron ( main_window, COLOR_PAIR(YELLOW));
   mvwprintw (main_window, 1, x - (x / 2) + 3, "[ PILBox Link ]" );
   wattroff ( main_window, COLOR_PAIR(YELLOW));
 
@@ -1356,6 +970,31 @@ int main(int argc, char **argv)
 
   (void)argc; (void)argv;
 
+  if (argc >= 2) {
+    char *progname = basename (argv[0]);
+
+    if (!strcmp(argv[1], "-v") || !strcmp(argv[1], "--version")) {
+      printf("%s %s\n", progname, ilper_vers);
+      return 0;
+    } else if (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")) {
+      printf(
+	     "Usage: %s\n"
+	     "       Launches the program.\n\n"
+	     "  or:  %s -h|--help\n"
+	     "       Print this help message and exit.\n\n"
+	     "  or:  %s -v|--version\n"
+	     "       Print program version and exit.\n\n"
+	     "See %s(1) for more information.\n"
+	     "Ilper homepage: <https://github.com/johnvax/ilper-linux>.\n",
+	     basename(argv[0]),
+	     basename(argv[0]),
+	     basename(argv[0]),
+	     basename(argv[0])
+	     );
+      return 0;
+    }
+  }
+  
   strcpy( strwd, getenv("HOME"));	// Defaut is Current Directory
   if (strwd[strlen(strwd) - 1] != '/')
     strcat(strwd, "/");
@@ -1494,7 +1133,7 @@ int main(int argc, char **argv)
 		      fdsc = open( strsc, O_CREAT | O_TRUNC | O_WRONLY, 0644 );
 		      if( -1 == fdsc )
 			{
-			  raise_window( 4, 76, "Error", 1,
+			  raise_window( 4, 76, "Error", COLOR_PAIR(RED) + A_BLINK, 1,
 					"Can not open '%s': %m\n Log is disabled", strsc );
 			}
 		    }
@@ -1509,23 +1148,24 @@ int main(int argc, char **argv)
 	}
       else if( 'D' == c )
 	{
-	  if ( ! panels[0].hide )
+	  if ( ! panels[0].hide ) // Default (PRINTER) Display
 	    {
-	      mvwhline ( main_window, 4, 1, boxc[2], (x / 2 ) - 2 );
-	      wattron ( main_window, COLOR_PAIR(YELLOW));
-	      mvwprintw ( main_window, 4, 2, "[ Display ]" );
-	      wattroff ( main_window, COLOR_PAIR(YELLOW));
 	      if( -1 != fddp )
 		{
 		  close( fddp );
 		  fddp = -1;
+
+		  mvwhline ( main_window, 4, 1, boxc[2], (x / 2 ) - 2 );
+		  wattron ( main_window, COLOR_PAIR(YELLOW));
+		  mvwprintw ( main_window, 4, 2, "[ Display ]" );
+		  wattroff ( main_window, COLOR_PAIR(YELLOW));
 		}
 	      else
 		{
 		  fddp = open( strdp, O_CREAT | O_TRUNC | O_WRONLY, 0644 );
 		  if( -1 == fddp )
 		    {
-		      raise_window( 4, 76, "Error", 1,
+		      raise_window( 4, 76, "Error", COLOR_PAIR(RED) + A_BLINK, 1,
 				    "Can not open '%s': %m\n Log is disabled", strdp );
 		    }
 		  else {
@@ -1535,7 +1175,7 @@ int main(int argc, char **argv)
 		  }
 		}
 	    }
-	  wrefresh(main_window);
+	  refresh_windows ();
 	  wrefresh( wcur );
 	}
       else if( 0x0A == c || ('o' == c || 'a' == c) )
@@ -1555,7 +1195,7 @@ int main(int argc, char **argv)
 	    {
 	      ilst = ( 0x0A == c ? ( ilst ? FALSE : TRUE )
 		       : ( 'o' == c ? FALSE : TRUE ) );
-	      if( ilst )
+	      if( ilst ) // START
 		{
 		  if( -1 == ilfd )
 		    {
@@ -1569,7 +1209,7 @@ int main(int argc, char **argv)
 			  tcsetattr( ilfd, TCSANOW, &tp );
 			  if( -1 == InitPILBox( COFF ) )
 			    {
-			      raise_window( 3, 25, "Error", 1,
+			      raise_window( 3, 25, "Error", COLOR_PAIR(RED) + A_BLINK, 1,
 					    "No response from PILBOX" );
 			      ilst = 0;
 			      close( ilfd );
@@ -1577,7 +1217,7 @@ int main(int argc, char **argv)
 			}
 		      if( -1 == ilfd )
 			{
-			  raise_window( 3, 76, "Error", 1,
+			  raise_window( 3, 76, "Error", COLOR_PAIR(RED) + A_BLINK, 1,
 					"Can not open %s: %m", strpo );
 			  ilst = 0;
 			}
@@ -1597,7 +1237,7 @@ int main(int argc, char **argv)
 			}
 		    }
 		}
-	      else
+	      else // STOP
 		{
 		  nodelay( stdscr, FALSE ); 	// 
 		  timeout (100);		// non-blocking with 100ms
@@ -1610,6 +1250,7 @@ int main(int argc, char **argv)
 		      ilfd = -1;
 		    }
 		}
+	      curs_set( (ilst ? 2 : 0)); /* Hide or show blinking cursor. */
 	      wattron( wcur, A_REVERSE + (ilst ? COLOR_PAIR(GREEN) : COLOR_PAIR(RED)));
 	      werase( wcur );
 	      mvwprintw( wcur, 0, 0, "%s", wstr = strst[ilst] );
@@ -1632,7 +1273,7 @@ int main(int argc, char **argv)
 	}
       else if( 'v' == c )
 	{
-	  raise_window( 5, 76, "Version", 1,
+	  raise_window( 5, 76, "Version", COLOR_PAIR(CYAN), 1,
 			"ILPer Version %s for %s\nCompiled %s\n %s\n",
 			ilper_vers, ilper_os, ilper_date, copyright );
 	

@@ -171,7 +171,7 @@ static struct Files {
 static char BUF1[BUFLEN];
 static char BUF2[BUFLEN];
 static wchar_t WBUF[BUFLEN];
-static char   strselfile[] = "Select LIF File";
+static char   strselfile[] = "[ Select LIF File ]";
 
 typedef enum EditStat {CONTINUE, CONFIRM, CANCEL} EditStat;
 
@@ -388,7 +388,7 @@ static void update_view()
             wattr_off(files.window, A_REVERSE, NULL);
     }
     for (; i < HEIGHT; i++)
-      mvwhline(files.window, i + 1, 1, ' ', COLS - 2);
+      mvwhline(files.window, i + 1, 1, ' ', WIDTH - 2);
 
     /* right scroll bar */
     if (files.nfiles > HEIGHT) {

@@ -1,5 +1,5 @@
-
-The PILBox is a beautiful hardware designed and built by Jean-Francois Garnier.
+The PILBox is a beautiful hardware now designed and built by Karel Koci. 
+Il was originally designed by Jean-Francois Garnier.
 
 This is the port of ilper-1.35 in C under Linux. One of tools used to manage
 the PILBox and the HP-IL emulation.
@@ -15,9 +15,8 @@ tool and the PILBox.
 
 Add for 1.40 version. 
 =====================
-PILBox is redisigned and built by Karel Koci with JF Garnier software. 
-Always a beautiful hardwareA indeed !
-Adding for this version, resizable main Window, some colors and a LIF file selector. 
+Adding for this version, resizable windows, some colors and a LIF file selector. 
+Now designed for the HP-IP 80 Column Vodeo Interface MC00701A.
 Works under Debian and other linuxes. Works well with a HP71. Try reversi game !
 
 

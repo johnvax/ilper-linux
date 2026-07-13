@@ -53,6 +53,17 @@ static int fvideo;  // HP-IL state machine flags:
     //   that used the efficient BIT opcode to test both bit 6 and 7)
 static int ptsdi;   // output pointer for device ID 
 
+// ******************************************
+// ClrDisplay()
+//
+// clear the display box
+// ******************************************
+void ClrDisplay( void )
+{
+  clrScr( panels[0].w );
+  wrefresh( panels[0].w );
+}
+
 // ****************************************** 
 // init_ildisplay()                           
 //                                            

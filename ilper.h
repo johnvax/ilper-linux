@@ -39,6 +39,8 @@ extern void VideoStr( char );
 extern void DisplayStr( char );
 extern void ClrDisplay( void );
 extern void ClrVideo( void );
+extern void initDisplay (WINDOW *);
+extern void clrScr (WINDOW *);
 
 // From ilper7.c
 extern void init_hpil( void );
