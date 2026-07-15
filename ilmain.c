@@ -30,7 +30,7 @@
 // 2008: rewriten in VB for the standalone ILPER Windows version using the PILBox!
 // 2009: released as free software
 // 2011: ported on Linux by Ch. Gottheimer with NCURSES
-// 2026: windows improvement : resizable, MX00701A view, optional scope space
+// 2026: windows improvement: see ilper(1) man page
 // ---------------------------------------------------------------------------------
 
 #include <stdio.h>
@@ -75,12 +75,13 @@
        char   strca[_POSIX_PATH_MAX];
 static char   strpo[_POSIX_PATH_MAX];
 static char   strvers[20];
-static char  *strst[ 2 ] = { "STOP", "START", };
+static char  *strst[ 2 ] = { "STOPPED", "RUNNING", };
 static char  *stryn[ 2 ] = { "YES", "NO", };
 static char  *strsc = "scope.out";
 static char  *strdp = "display.out";
 static int    ilst = FALSE, issc = FALSE;
-static int    ilfd = -1, fdsc = -1, fddp = -1;
+static int    ilfd = -1, fdsc = -1;
+       int    fddp = -1;
 static int    lasth = 0;
 //                          LFile, Scope, Display, Video,  Start/Stop, Pilboxlink
 static WINDOW *main_window,*wca,   *wsc,  *wdp,    *wdv,  *wst,        *wpo,       *wcur;
@@ -256,6 +257,8 @@ static void refresh_windows()
   redrawwin( wst );
   redrawwin( wpo );
   if (issc) redrawwin( wsc );
+  if (wrwin) redrawwin (wrwin);
+  if (wdrwin) redrawwin (wdrwin);
   if ( ! panels[0].hide ) redrawwin( panels[0].w );
   if ( ! panels[1].hide ) redrawwin( panels[1].w );
   if ( ! panels[2].hide ) redrawwin( panels[2].w );
@@ -267,6 +270,8 @@ static void refresh_windows()
   if ( ! panels[1].hide ) wrefresh( panels[1].w );
   if ( ! panels[2].hide ) wrefresh( panels[2].w );
   update_panels();
+  if (wrwin) wrefresh (wrwin);
+  if (wdrwin) wrefresh (wdrwin);
 }
 
 // ******************************************
@@ -557,63 +562,6 @@ void DisplayMnemo( char *mnemo )
 }
 
 // ******************************************
-// DisplayStr(ch)
-//
-// display a character in the DISPLAY window
-// convert some HP41 character
-// ******************************************
-void DisplayStr( char ch )
-{
-  static int fesc = 0;
-
-  if (panels[0].hide)
-    return;
-  
-  if( fesc == 0 )
-    {
-    switch( (int)ch & 0xFF )
-      {
-      // convert special HP41 characters to regular ASCII
-      case 0: ch = '*'; break;
-      case 12: ch = 'u'; break;   // micron
-      case 13: ch = '\0'; break;
-      case 28: ch = 's'; break;   // sigma
-      case 27: fesc = 1; break;   // escape sequences
-      case 29: ch = '#'; break;   // different
-      case 124: ch = 'a'; break;  // angle sign
-      case 127: ch = '`'; break;  // append
-      default: if( (((int)ch & 0xFF) > 127) &&
-                    ((((int)ch & 0xFF) < 160) || (((int)ch & 0xFF) == 255)) )
-	  {
-	    ch = '.';  // non-printable characters
-	  }
-	break;
-      }
-    if( fesc == 0 )
-      {
-	if( ch )
-	  {
-	    if( -1 != fddp )
-	      {
-		char dp = (ch & 0x7F);
-		write( fddp, &dp, sizeof(dp) );
-	      }
-	    if( (160 <= ((int)ch & 0xFF)) && (254 >= ((int)ch & 0xFF)) )
-	      wattron( wdp, A_REVERSE );
-	    wprintw( wdp, "%c", (ch & 0x7F) );
-	    if( (160 <= ((int)ch & 0xFF)) && (254 >= ((int)ch & 0xFF)) )
-	      wattroff( wdp, A_REVERSE );
-	    wrefresh( wdp );
-	  }
-      }
-    }
-  else
-    {
-      fesc = 0; // ignore escape sequences (for the HP71)
-    }
-}
-
-// ******************************************
 // ReadPILBox(&byt)
 //
 // try to read one byte from PILBox
@@ -835,7 +783,7 @@ void create_subwindows ()
   redrawwin ( wpo );
 
   // Start-Stop
-  wcur = wst = subwin (main_window, 1, 5, 2, x - 8 );
+  wcur = wst = subwin (main_window, 1, 7, 2, x - 11 );
   wattron ( wst, A_REVERSE + (ilst ? COLOR_PAIR(GREEN) : COLOR_PAIR(RED)));
   mvwprintw ( wst, 0, 0, "%s", wstr = strst[ilst] );
   wrefresh ( wst );
@@ -903,7 +851,7 @@ void init_window ()
   // LIF, Device ans Start/stop window header
   mvwprintw ( main_window, 2, 3, "LIF: " );
   mvwprintw ( main_window, 2, x - (x / 2) + 2, "Device: " );
-  mvwprintw ( main_window, 2, x - 9, "[     ]" );
+  mvwprintw ( main_window, 2, x - 13, "[         ]" );
 
   refresh ();
 }
@@ -1023,7 +971,7 @@ int main(int argc, char **argv)
 	sync_signals ();
       else if ( (c == 'q') || (c == 'Q') )
       {
-	quit = yesno_window ("Voulez-vous quitter ?");
+	quit = yesno_window ("Do you want to exit ?");
       }
       else if  ( !ilst && (0x161 == c) )	// SHIFT + TAB
 	{
@@ -1186,10 +1134,6 @@ int main(int argc, char **argv)
 	      mvwprintw( wcur, 0, 0, "%s", wstr );
 	      wrefresh( wcur );
 	      wcur = wst;
-	      wstr = strst[ilst];
-	      wattron( wcur, A_REVERSE + (ilst ? COLOR_PAIR(GREEN) : COLOR_PAIR(RED)));
-	      mvwprintw( wcur, 0,0,"%s", wstr );
-	      wrefresh( wcur );
 	    }
 	  if( wcur == wst )
 	    {
@@ -1230,8 +1174,8 @@ int main(int argc, char **argv)
 			{
 			  nodelay( stdscr, TRUE );
 			  werase( wsc );
-			  werase( wdv );
-			  werase( wdp );
+			  ClrDisplayP();
+			  ClrDisplayV();
 			  refresh_windows ();
 			  init_hpil();
 			}
@@ -1251,10 +1195,11 @@ int main(int argc, char **argv)
 		    }
 		}
 	      curs_set( (ilst ? 2 : 0)); /* Hide or show blinking cursor. */
-	      wattron( wcur, A_REVERSE + (ilst ? COLOR_PAIR(GREEN) : COLOR_PAIR(RED)));
 	      werase( wcur );
+	      wattron( wcur, A_REVERSE + (ilst ? COLOR_PAIR(GREEN) : COLOR_PAIR(RED)));
 	      mvwprintw( wcur, 0, 0, "%s", wstr = strst[ilst] );
-	      wrefresh( wcur );
+	      wattroff( wcur, A_REVERSE + (ilst ? COLOR_PAIR(GREEN) : COLOR_PAIR(RED)));
+	      refresh_windows();
 	    }
 	  else
 	    {

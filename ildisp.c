@@ -52,16 +52,74 @@ static int fvideo;  // HP-IL state machine flags:
     // ( this choice comes from my original 6502 assembly code [PLTERx and ILPERx applications, 1984-1988]
     //   that used the efficient BIT opcode to test both bit 6 and 7)
 static int ptsdi;   // output pointer for device ID 
+extern int fddp;
 
 // ******************************************
-// ClrDisplay()
+// ClrDisplayP()
 //
 // clear the display box
 // ******************************************
-void ClrDisplay( void )
+void ClrDisplayP( void )
 {
-  clrScr( panels[0].w );
-  wrefresh( panels[0].w );
+  werase ( panels[0].w );
+  wrefresh ( panels[0].w );
+}
+
+// ******************************************
+// DisplayStr(ch)
+//
+// display a character in the DISPLAY window
+// convert some HP41 character
+// ******************************************
+void DisplayStr( char ch )
+{
+  static int fesc = 0;
+
+  if (panels[0].hide)
+    return;
+  
+  if( fesc == 0 )
+    {
+    switch( (int)ch & 0xFF )
+      {
+      // convert special HP41 characters to regular ASCII
+      case 0: ch = '*'; break;
+      case 12: ch = 'u'; break;   // micron
+      case 13: ch = '\0'; break;
+      case 28: ch = 's'; break;   // sigma
+      case 27: fesc = 1; break;   // escape sequences
+      case 29: ch = '#'; break;   // different
+      case 124: ch = 'a'; break;  // angle sign
+      case 127: ch = '`'; break;  // append
+      default: if( (((int)ch & 0xFF) > 127) &&
+                    ((((int)ch & 0xFF) < 160) || (((int)ch & 0xFF) == 255)) )
+	  {
+	    ch = '.';  // non-printable characters
+	  }
+	break;
+      }
+    if( fesc == 0 )
+      {
+	if( ch )
+	  {
+	    if( -1 != fddp )
+	      {
+		char dp = (ch & 0x7F);
+		write( fddp, &dp, sizeof(dp) );
+	      }
+	    if( (160 <= ((int)ch & 0xFF)) && (254 >= ((int)ch & 0xFF)) )
+	      wattron( panels[0].w, A_REVERSE );
+	    wprintw( panels[0].w, "%c", (ch & 0x7F) );
+	    if( (160 <= ((int)ch & 0xFF)) && (254 >= ((int)ch & 0xFF)) )
+	      wattroff( panels[0].w, A_REVERSE );
+	    wrefresh( panels[0].w );
+	  }
+      }
+    }
+  else
+    {
+      fesc = 0; // ignore escape sequences (for the HP71)
+    }
 }
 
 // ****************************************** 
@@ -142,11 +200,11 @@ static int traite_cmd( int frame )
 	case 4: // SDC 
 	  if( fvideo & 0x80 )
 	    {
-	      ClrDisplay();
+	      ClrDisplayP();
 	    }
 	  break;
 	case 20: // DCL 
-	  ClrDisplay();
+	  ClrDisplayP();
 	  break;
 	}
     case 1: // LAD 

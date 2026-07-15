@@ -37,10 +37,7 @@ extern char strwd[];
 extern void DisplayMnemo( char * );
 extern void VideoStr( char );
 extern void DisplayStr( char );
-extern void ClrDisplay( void );
-extern void ClrVideo( void );
 extern void initDisplay (WINDOW *);
-extern void clrScr (WINDOW *);
 
 // From ilper7.c
 extern void init_hpil( void );
@@ -48,10 +45,12 @@ extern int hpil_transmit( int );
 
 // From ildisp.c
 extern int ILdisplay( int );
+extern void ClrDisplayP ( void );
 extern void init_ildisplay( void );
 
 // From ilvideo.c
 extern int ILvideo( int );
+extern void ClrDisplayV ( void );
 extern void init_ilvideo( void );
 
 // From ildrive.c

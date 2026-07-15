@@ -55,8 +55,6 @@ static int8_t m_bAutoCrlf;
 static char  *m_pbyBuffer;
 #define CHR_AT(x,y)(m_pbyBuffer[(m_nBufLine + (y)) * m_nVisCols + (x)])
 
-extern DISP_PANEL panels[];	// panels[1] is wdv (MC00701A)
-
 //
 // Init Display (MC00701A)
 //
@@ -135,17 +133,18 @@ void CursorRight(WINDOW *w)
 //
 // clrScr
 // Clear current window
-void clrScr (WINDOW *w)
+static void clrScr (WINDOW *w)
 {
   werase (w);
   m_xCurPos = m_yCurPos = 0;			// cursor at (0,0)
 }
 
 // 
-// ClrVideo()
+// ClrDisplayV()
 // clear the display box
+// panels[1] is wdv (MC00701A)
 // 
-void ClrVideo( void )
+void ClrDisplayV ( void )
 {
   clrScr( panels[1].w );
   wrefresh( panels[1].w );
@@ -505,11 +504,11 @@ static int traite_cmd( int frame )
 	case 4: // SDC 
 	  if( fvideo & 0x80 )
 	    {
-	      ClrVideo();
+	      ClrDisplayV();
 	    }
 	  break;
 	case 20: // DCL 
-	  ClrVideo();
+	  ClrDisplayV();
 	  break;
 	}
     case 1: // LAD 
