@@ -35,6 +35,7 @@
 // ------------------------------------------------------------------------------
 
 #include <stdio.h>
+#include <unistd.h>
 #include "ilper.h"
 
     // HP-IL data and variables */
