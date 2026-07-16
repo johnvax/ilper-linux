@@ -91,7 +91,7 @@ void DisplayStr( char ch )
       case 27: fesc = 1; break;   // escape sequences
       case 29: ch = '#'; break;   // different
       case 124: ch = 'a'; break;  // angle sign
-      case 127: ch = '`'; break;  // append
+      case 127: ch = '+'; break;  // append
       default: if( (((int)ch & 0xFF) > 127) &&
                     ((((int)ch & 0xFF) < 160) || (((int)ch & 0xFF) == 255)) )
 	  {

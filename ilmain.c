@@ -1186,7 +1186,7 @@ int main(int argc, char **argv)
 		  nodelay( stdscr, FALSE ); 	// 
 		  timeout (100);		// non-blocking with 100ms
 
-		  refresh_windows();
+  //		  refresh_windows();
 		  if( -1 != ilfd )
 		    {
 		      InitPILBox( TDIS );
@@ -1198,7 +1198,6 @@ int main(int argc, char **argv)
 	      werase( wcur );
 	      wattron( wcur, A_REVERSE + (ilst ? COLOR_PAIR(GREEN) : COLOR_PAIR(RED)));
 	      mvwprintw( wcur, 0, 0, "%s", wstr = strst[ilst] );
-	      wattroff( wcur, A_REVERSE + (ilst ? COLOR_PAIR(GREEN) : COLOR_PAIR(RED)));
 	      refresh_windows();
 	    }
 	  else
