@@ -3,12 +3,29 @@
 ilper \- Mass storage and Video emulation for the PILBox
 .SH SYNOPSIS
 .B ilper
-.SH DESCRIPTION
+[\fB\-b\fR|\fB\-\-baudrate\fR \fIBAUDRATE\fR]
+.br
 .B ilper
-(1) is an peripherials emulator for usage with the PILBox. The PILBox is
-a USB/HP-IL converter to use with HP-IL controller, as the HP-41C*, HP-75C
-and HP71B. The new PILBox is designed and built by Karel Koci and was originally
-designed by Jean-Francois Garnier.
+\fB\-h\fR|\fB\-\-help\fR
+.br
+.B ilper
+\fB\-v\fR|\fB\-\-version\fR
+.SH DESCRIPTION
+Peripherals emulator for HP-IL machines with PILBox or TULIP4041.
+.SH OPTIONS
+.TP
+\fB\-b\fR, \fB\-\-baudrate\fR
+set default baudrate instead of default one.
+.br
+Allowed values are:
+\fB9600, 57600, 115200, 230400\fR
+.SH CONCEPTS
+.B ilper
+(1) is an peripherials emulator for usage with the PILBox or TULIP4041.
+The PILBox is a USB/HP-IL converter to use with HP-IL controller, as the HP-41C*,
+HP-75C and HP71B. The new PILBox is designed and built by Karel Koci and was
+originally designed by Jean-Francois Garnier. The TULIP 4041 is designed and built
+by Meindert Kuipers (https://github.com/mjakuipers/TULIP-DevBoard).
 .PP
 It emulates a video display at address 1 and a Mass storage at address 2.
 .PP
@@ -52,7 +69,9 @@ To START or STOP, just press ENTER as a flip-flop.
 .PP
 To change the value of either LIF or Device, select the field by using TAB
 or shift TAB then press ENTER. Enter the new value and press ENTER to set.
-To select a LIF File in a file browser, press L key. Then use:
+To select an other USB Device without entering its name, press down arrow
+when in the PILBOX link window to cycle through the existing devices names.
+To select a LIF File in a file browser, press L key from anywhere. Then use:
 .IP
 .nf
   <Left arrow>   to go to parent directory
@@ -86,6 +105,7 @@ The following commands are accepted:
   h - Display a help
   v - Display the software version
   a - Start the emulation
+  b - Select baud rate (115200	by default)
   o - Stop the emulation
   l - Change the LIF File (Edit)
   L - Select the LIF File (Browser)
@@ -130,8 +150,8 @@ before to connect the PILBox. Also, moderns Linux distributions have tools
 to detect and insert the good module automatically when the PILBox is plugged.
 .PP
 The HP82160A HP-IL module is mandatory to use the PILBox with the HP-41C*.
-.SH BUGS
-The PILBox 115200 bauds optimization is not supported.
+.PP
+The PILBox 115200 bauds optimization is only supported with new pilboxes.
 .PP
 The escape sequences are not managed.
 .PP

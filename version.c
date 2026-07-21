@@ -2,6 +2,6 @@
 // ===================================================
 
 const char ilper_vers[] = "1.40.0 #0";
-const char ilper_date[] = "(jmvansteene@Egeon) Sun Jul 12 20:07:23 CEST 2026";
+const char ilper_date[] = "(jmvansteene@Egeon) Sun Jul 19 20:44:51 CEST 2026";
 const char ilper_os[] = "Linux 6.6.114.1-microsoft-standard-WSL2";
 

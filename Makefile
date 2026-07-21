@@ -1,7 +1,8 @@
-# ILPER 1.38 for Linux
+# ILPER 1.40 for Linux
 #
 # Copyright (c) 2008-2009  J-F Garnier
 # Copyright (c) 2011-2012  Ch. Gottheimer
+# Copyright (c) 2026       JM. Vansteene
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License

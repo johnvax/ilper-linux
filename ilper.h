@@ -75,6 +75,14 @@ typedef enum Color {DEFAULT, RED, GREEN, BLUE, CYAN, YELLOW, MAGENTA, WHITE, BLA
 
 extern chtype *boxc;
 
+// Define a struct to represent each radio button
+typedef struct {
+  char label[20];
+  int selected;
+  int focused;
+  unsigned int baudRate;
+} RadioButton;
+
 void init_term ();
 void init_window ();
 void create_subwindows ();

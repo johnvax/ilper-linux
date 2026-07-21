@@ -13,12 +13,17 @@ It has worked with a HP-75C and a HP-41CV + HP-82160A HP-IL module.
 You need to have a HP-82160A HP-IL module with the HP-41C* calculator to use this
 tool and the PILBox.
 
-Add for 1.40 version. 
-=====================
-Adding for this version, resizable windows, some colors and a LIF file selector. 
-Now designed for the HP-IP 80 Column Vodeo Interface MC00701A.
-Works under Debian and other linuxes. Works well with a HP71. Try reversi game !
+<< New >> in 1.40 version
+=========================
+- Resizable windows,
+- LIF file selector,
+- Serial USB Device selector,
+- Designed for the HP-IP 80 Column Video Interface (MC00701A),
+- Scope number of mnemos adjust to the right window size,
+- Some colors.
 
+Works well under Debian and other linuxes.
+tested with a HP41, HP71. Try reversi game, very nice !
 
 1/ REQUIREMENTS
 

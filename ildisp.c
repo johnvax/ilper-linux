@@ -272,7 +272,7 @@ static int traite_rdy( int frame )
   n = frame & 255;
   if( n <= 127 )
     {
-    // sot 
+    // SOT
     if( fvideo & 0x40 )
       {
       // if addressed talker 
@@ -303,7 +303,7 @@ static int traite_rdy( int frame )
         {
         // SAI 
         frame = AID;
-        fvideo = 0xC0;
+	fvideo = 0xC0;
         }
       }
     }

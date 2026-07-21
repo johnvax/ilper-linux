@@ -51,8 +51,8 @@ static char *ILMnemo( int frame )
 {
   static char stmp[9];
          char s[7];
+#if 0
          int  n;
-
   char *mnemo[] = { "DAB", "DSR", "END", "ESR", "CMD", "RDY", "IDY", "ISR", };
   char *scmd0[] = { "NUL", "GTL", "???", "???", "SDC", "PPD", "???", "???",
                     "GET", "???", "???", "???", "???", "???", "???", "ELN",
@@ -141,6 +141,80 @@ static char *ILMnemo( int frame )
 	}
     }
 
+#else
+
+  const static struct
+  {
+    int wOpc;							// opcode
+    int wMask;							// opcode mask
+    char cMne[4];						// mnemonic
+  } sCodes[] =
+    {
+      { 0x000, 0x700, "DAB" },
+      { 0x100, 0x700, "DSR" },
+      { 0x200, 0x700, "END" },
+      { 0x300, 0x700, "ESR" },
+      { 0x400, 0x7FF, "NUL" },
+      { 0x401, 0x7FF, "GTL" },
+      { 0x404, 0x7FF, "SDC" },
+      { 0x405, 0x7FF, "PPD" },
+      { 0x408, 0x7FF, "GET" },
+      { 0x40F, 0x7FF, "ELN" },
+      { 0x410, 0x7FF, "NOP" },
+      { 0x411, 0x7FF, "LLO" },
+      { 0x414, 0x7FF, "DCL" },
+      { 0x415, 0x7FF, "PPU" },
+      { 0x418, 0x7FF, "EAR" },
+      { 0x43F, 0x7FF, "UNL" },
+      { 0x420, 0x7E0, "LAD" },
+      { 0x45F, 0x7FF, "UNT" },
+      { 0x440, 0x7E0, "TAD" },
+      { 0x460, 0x7E0, "SAD" },
+      { 0x480, 0x7F0, "PPE" },
+      { 0x490, 0x7FF, "IFC" },
+      { 0x492, 0x7FF, "REN" },
+      { 0x493, 0x7FF, "NRE" },
+      { 0x49A, 0x7FF, "AAU" },
+      { 0x49B, 0x7FF, "LPD" },
+      { 0x4A0, 0x7E0, "DDL" },
+      { 0x4C0, 0x7E0, "DDT" },
+      { 0x400, 0x700, "CMD" },
+      { 0x500, 0x7FF, "RFC" },
+      { 0x540, 0x7FF, "ETO" },
+      { 0x541, 0x7FF, "ETE" },
+      { 0x542, 0x7FF, "NRD" },
+      { 0x560, 0x7FF, "SDA" },
+      { 0x561, 0x7FF, "SST" },
+      { 0x562, 0x7FF, "SDI" },
+      { 0x563, 0x7FF, "SAI" },
+      { 0x564, 0x7FF, "TCT" },
+      { 0x580, 0x7E0, "AAD" },
+      { 0x5A0, 0x7E0, "AEP" },
+      { 0x5C0, 0x7E0, "AES" },
+      { 0x5E0, 0x7E0, "AMP" },
+      { 0x500, 0x700, "RDY" },
+      { 0x600, 0x700, "IDY" },
+      { 0x700, 0x700, "ISR" }
+    };
+
+  // go through HP-IL opcode table
+  for (unsigned int i = 0; i < sizeof (sCodes) / sizeof (sCodes[0]); ++i)
+    {	// found opcode in table
+      if ((frame & sCodes[i].wMask) == sCodes[i].wOpc)
+	{
+	  // get argument from mask
+	  const int wArg = (~sCodes[i].wMask) & 0xFF;
+	  
+	  strcpy(s,sCodes[i].cMne);		// copy name
+	  if (wArg != 0)			// opcode has an argument
+	    {
+	      // OxA0 is unbreakable space
+		sprintf(&s[3],"%c%02X", 0x20, (frame & wArg));
+	    }
+	  break;
+	}
+    }
+#endif
   snprintf( stmp, sizeof(stmp), "%-8s", s );
   return stmp;
 }

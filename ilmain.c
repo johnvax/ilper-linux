@@ -44,10 +44,13 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <dirent.h>
 #include <locale.h>
 #include <signal.h>
 #include <ncurses.h>
 #include <libgen.h>
+#include <getopt.h>
 
 #include "ilper.h"
 
@@ -83,11 +86,15 @@ static int    ilst = FALSE, issc = FALSE;
 static int    ilfd = -1, fdsc = -1;
        int    fddp = -1;
 static int    lasth = 0;
+static int    cpt = 0;		// count of Mnemos
+
 //                          LFile, Scope, Display, Video,  Start/Stop, Pilboxlink
 static WINDOW *main_window,*wca,   *wsc,  *wdp,    *wdv,  *wst,        *wpo,       *wcur;
 static WINDOW *wrwin = NULL, *wdrwin = NULL;
 static char   *wstr;
 static int    x, y;
+static int    scWidth; // Number of posible chars in Scope Window
+static int    scCpt;   // Number of possible Mnemos
                        //  ls   rs   ts   bs   tl   tr   bl   br   lt   rt   tt   bt
 static chtype gboxc[] = {   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, };
 static chtype aboxc[] = { '|', '|', '-', '-', '+', '+', '+', '+', '|', '|', '-', '-', };
@@ -100,7 +107,17 @@ static chtype aboxc[] = { '|', '|', '-', '-', '+', '+', '+', '+', '|', '|', '-',
 static const char *const copyright = "Copyright (c) 2008-2026 J-F Garnier & Ch Gottheimer & J-M Vansteene";
 static const char *const footer = "d: toggle display - h: Help - q: quit";
 
+// Panels
 DISP_PANEL panels[3] = { {NULL, NULL, FALSE} ,{NULL, NULL, FALSE} ,{NULL, NULL, FALSE} };
+
+// Radio Buttons
+RadioButton radioButtons[] = {
+  {"9600",   0, 0, B9600},
+  {"57600",  0, 0, B57600},
+  {"115200", 1, 1, B115200},
+  {"230400", 0, 0, B230400}
+};
+int numButtons = sizeof(radioButtons) / sizeof(radioButtons[0]);
 
 // Help
 typedef struct _RICHTEXT {
@@ -113,6 +130,7 @@ static RICHTEXT help [] = {
   { "h", A_BOLD | COLOR_PAIR(YELLOW), " - Display a help" , COLOR_PAIR(DEFAULT)},
   { "v", A_BOLD | COLOR_PAIR(YELLOW), " - Display the software version", COLOR_PAIR(0) },
   { "a", A_BOLD | COLOR_PAIR(YELLOW), " - Start the emulation", COLOR_PAIR(0) },
+  { "b", A_BOLD | COLOR_PAIR(YELLOW), " - Select baud rate (115200 by default)", COLOR_PAIR(0) },
   { "o", A_BOLD | COLOR_PAIR(YELLOW), " - Stop the emulation", COLOR_PAIR(0) },
   { "l", A_BOLD | COLOR_PAIR(YELLOW), " - Change the LIF File (Edit)", COLOR_PAIR(0) },
   { "L", A_BOLD | COLOR_PAIR(YELLOW), " - Select the LIF File (Browser)", COLOR_PAIR(0) },
@@ -129,12 +147,115 @@ volatile sig_atomic_t pending_usr1;
 volatile sig_atomic_t pending_winch;
 void init_window ();
 
+typedef struct
+{
+    char by_id_name[NAME_MAX + 1];   /* Nom du lien dans /dev/serial/by-id */
+    char devnode[PATH_MAX];          /* Chemin résolu, ex: /dev/ttyUSB0 */
+} serial_device_t;
+
+#define DEVICES_MAX 	64
+static uint8_t numDevices;
+static int8_t curDevice;
+static serial_device_t devices[DEVICES_MAX];
+
+// for list_serial_by_id
+static int join_path(char *dst, size_t dst_size, const char *a, const char *b)
+{
+    int n = snprintf(dst, dst_size, "%s/%s", a, b);
+    return (n >= 0 && (size_t)n < dst_size) ? 0 : -1;
+}
+
+// ******************************************
+// ClrScope()
+//
+// clear the Scope box
+// ******************************************
+void ClrScope( void )
+{
+  werase ( wsc );
+  cpt = 0;
+}
+
+// ******************************************
+// list_serial_by_id (devices, max_devices)
+// list serial peripherals by id
+// Return value:
+//  >= 0: number of peripherals (or /dev/serial non existent
+//    -1: error
+//*******************************************
+int list_serial_by_id(serial_device_t *devices, size_t max_devices)
+{
+    const char *base_dir = "/dev/serial/by-id";
+    DIR *dir;
+    struct dirent *ent;
+    size_t count = 0;
+
+    dir = opendir(base_dir);
+    if (dir == NULL)
+    {
+        if (errno == ENOENT)
+        {
+            /* No directory => no serial devices */
+            return 0;
+        }
+        return -1;
+    }
+
+    while ((ent = readdir(dir)) != NULL)
+    {
+        char link_path[PATH_MAX];
+        char target[PATH_MAX];
+        char resolved[PATH_MAX];
+        struct stat st;
+        ssize_t len;
+
+        if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0)
+            continue;
+
+        if (count >= max_devices)
+            break;
+
+        if (join_path(link_path, sizeof(link_path), base_dir, ent->d_name) != 0)
+            continue;
+
+        if (lstat(link_path, &st) != 0)
+            continue;
+
+        if (!S_ISLNK(st.st_mode))
+            continue;
+
+        len = readlink(link_path, target, sizeof(target) - 1);
+        if (len < 0)
+            continue;
+
+        target[len] = '\0';
+
+        /*
+         * symlinks are often relative paths, eg: ../../ttyUSB0
+         * realpath() will get the real path like  /dev/ttyUSB0
+         */
+        if (realpath(link_path, resolved) == NULL)
+            continue;
+
+        strncpy(devices[count].by_id_name, ent->d_name, sizeof(devices[count].by_id_name) - 1);
+        devices[count].by_id_name[sizeof(devices[count].by_id_name) - 1] = '\0';
+
+        strncpy(devices[count].devnode, resolved, sizeof(devices[count].devnode) - 1);
+        devices[count].devnode[sizeof(devices[count].devnode) - 1] = '\0';
+
+        count++;
+    }
+
+    closedir(dir);
+    return (int)count;
+}
+
 // ******************************************
 // raise_window_r()
 //
 // raise a pop-up window and print the given
 // richtext structure
-// justify: 0=left, 1=middle, 2=right
+// justify: left only
 // ******************************************
 static void raise_window_r ( int nlin, int ncol, const char *title, RICHTEXT text [] )
 {
@@ -289,6 +410,115 @@ static void unraise_window( void )
   wdrwin = wrwin = NULL;
 
   refresh_windows();
+}
+
+// ******************************************
+// RADIO BUTTONS functions
+// ******************************************
+// Function to retrive the bautRate based on selected one
+unsigned int getSelectedBaudRate(RadioButton radioButtons[], int numButtons)
+{
+  for (int i = 0; i < numButtons; i++) {
+    if (radioButtons[i].selected) {
+      return radioButtons[i].baudRate;
+    }
+  }
+  return B115200;
+}
+
+// Function to update focus state based on current selection
+void updateFocus(RadioButton radioButtons[], int numButtons, int focusedOption)
+{
+  for (int i = 0; i < numButtons; i++) {
+    radioButtons[i].focused = (i == focusedOption);
+  }
+}
+
+// Function to update and display the radio buttons
+void updateRadioWindow(WINDOW *radioWin, RadioButton radioButtons[], int numButtons)
+{
+  // Clear the radio window
+  werase(radioWin);
+  
+  // Display the radio button options
+  for (int i = 0; i < numButtons; i++) {
+    if (radioButtons[i].focused) {
+      // Set color pair for focused mode
+      wattron(radioWin, A_REVERSE + COLOR_PAIR(YELLOW));
+    } else if (radioButtons[i].selected) {
+      // Set color pair for highlight mode
+      wattron(radioWin, A_REVERSE + COLOR_PAIR(RED));
+    }
+    mvwprintw(radioWin, i, 2, "[%c] %s", radioButtons[i].selected ? 'o' : ' ', radioButtons[i].label);
+    if (radioButtons[i].focused || radioButtons[i].selected) {
+      // Turn off color pair after printing
+      wattroff(radioWin, A_REVERSE + COLOR_PAIR(YELLOW));
+      wattroff(radioWin, A_REVERSE + COLOR_PAIR(RED));
+    }
+  }
+}
+
+// ******************************************
+// raise_radio()
+//
+// raise a pop-up window and displays a radio
+// button selector
+// justify: left only
+// ******************************************
+static void raise_radio ( int nlin, int ncol, const char *title, int numButtons, RadioButton radioButtons[] )
+{
+  int ch;
+  
+  wrwin = newwin( nlin, ncol, (y - nlin) / 2, (x - ncol) / 2 );
+  wborder( wrwin, boxc[0], boxc[1], boxc[2], boxc[3], boxc[4], boxc[5], boxc[6], boxc[7] );
+  wattron (wrwin, COLOR_PAIR(CYAN));
+  mvwprintw( wrwin, 0, 2, "[ %s ]", title );
+  mvwprintw( wrwin, nlin-1, 2, "[ %s ]", "Space:select, Enter:quit" );
+  wattroff (wrwin, COLOR_PAIR(CYAN));
+  wrefresh( wrwin );
+  wdrwin = derwin( wrwin, nlin - 2, ncol - 2, 1, 1);
+
+  int selectedOption = -1;
+  int focusedOption = 0; // Initial focus on the first option
+
+  // Set the radio button indexes
+  for (int i = 0; i < numButtons; i++) {
+    if (radioButtons[i].focused) {
+      focusedOption = i;
+    } else if (radioButtons[i].selected) {
+      selectedOption = i;
+    }
+  }
+
+  ch = 0;
+  do {
+      switch (ch)
+	{
+	case KEY_DOWN:
+	  focusedOption = (focusedOption + 1) % numButtons;
+	  updateFocus(radioButtons, numButtons, focusedOption);
+	  break;
+	
+	case KEY_UP:
+	  focusedOption = (focusedOption - 1 + numButtons) % numButtons;
+	  updateFocus(radioButtons, numButtons, focusedOption);
+	  break;
+	
+	case ' ': // Spacebar
+	case '\n':
+	  selectedOption = focusedOption;
+	  for (int i = 0; i < numButtons; i++) {
+	    radioButtons[i].selected = (i == selectedOption);
+	  }
+	  break;
+	}
+      // Update radiobuttons
+      updateRadioWindow(wdrwin, radioButtons, numButtons);
+      wrefresh(wdrwin);
+
+  }  while ((ch = getch()) != 0x0a);
+
+  unraise_window();
 }
 
 // ******************************************
@@ -451,7 +681,7 @@ if (!issc) {
 
   wresize (temp0->w,  y - 6, x - 2 );
   wresize (temp1->w,  y - 6, x - 2 );
-  //  wresize (temp2->w,  y - 6, right - 1 );
+  wresize (temp2->w,  y - 6, right );
   
  } else {
   mvwaddch ( main_window, y - 1, left + 1, boxc[11] );
@@ -462,6 +692,9 @@ if (!issc) {
   wresize ( temp1->w, y - 6, left);
   mvwin   ( temp2->w, 5, left + 2);
   wresize ( temp2->w, y - 6, right);
+  scWidth = right;
+  scCpt = (right / 9) - 1;
+  cpt = 0;
 
   // Add Scope header
   if (issc) add_scope_hdr ();
@@ -542,8 +775,6 @@ static void disable_handlers()
 // ******************************************
 void DisplayMnemo( char *mnemo )
 {
-  static int cpt = 0;
-
   if( issc )
     {
       if( -1 != fdsc )
@@ -551,10 +782,10 @@ void DisplayMnemo( char *mnemo )
 	  write( fdsc, mnemo, strlen( mnemo ) );
 	  write( fdsc, "\n", 1 );
 	}
-      wprintw( wsc, " %s", mnemo );
-      if( cpt++ == 3 )
+      wprintw( wsc, "%s ", mnemo );
+      if( cpt++ >= scCpt)
 	{
-	  wprintw( wsc, "\n" );
+	  if (scWidth % 9) wprintw( wsc, "\n" );
 	  cpt = 0;
 	}
       wrefresh( wsc );
@@ -648,11 +879,11 @@ static void PILBox( int byt )
     // low byte, build frame according to format
     if( byt & 0x80 )
       {
-      frame = ((lasth & 0x1E) << 6) + (byt & 0x7F);
+	frame = ((lasth & 0x1E) << 6) + (byt & 0x7F);
       }
     else
       {
-      frame = ((lasth & 0x1F) << 6) + (byt & 0x3F);
+	frame = ((lasth & 0x1F) << 6) + (byt & 0x3F);
       }
 
     frame = hpil_transmit( frame ); // transmit IL frame to internal virtual devices
@@ -915,18 +1146,30 @@ int main(int argc, char **argv)
 {
   bool quit = FALSE;
   int  c;
+  int opt= 0;
 
+  static struct option long_options[] = {
+    {"version",   no_argument,       0,  'v' },
+    {"help"   ,   no_argument,       0,  'h' },
+    {"baudrate",  required_argument, 0,  'b' },
+    {0,           0,                 0,  0   }
+  };
+  
   (void)argc; (void)argv;
 
-  if (argc >= 2) {
-    char *progname = basename (argv[0]);
-
-    if (!strcmp(argv[1], "-v") || !strcmp(argv[1], "--version")) {
+  char *progname = basename (argv[0]);
+  int long_index =0;
+  while ((opt = getopt_long(argc, argv,"hvb:",
+			    long_options, &long_index )) != -1) {
+    switch (opt) {
+    case 'v': // --version
       printf("%s %s\n", progname, ilper_vers);
       return 0;
-    } else if (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")) {
+      break;
+
+    case 'h': // --help
       printf(
-	     "Usage: %s\n"
+	     "Usage: %s [OPTIONS]\n"
 	     "       Launches the program.\n\n"
 	     "  or:  %s -h|--help\n"
 	     "       Print this help message and exit.\n\n"
@@ -940,14 +1183,36 @@ int main(int argc, char **argv)
 	     basename(argv[0])
 	     );
       return 0;
+      break;
+      
+    case 'b': // --baudrate
+      for (int i = 0; i < numButtons; i++) {
+	if (! strcmp (radioButtons[i].label, optarg)) {
+	  for (int i = 0; i < numButtons; i++) { // cleanup previous selection
+	    radioButtons[i].focused = FALSE;
+	    radioButtons[i].selected = FALSE; 
+	  }
+	  radioButtons[i].focused = TRUE;  // set selection (baudrate)
+	  radioButtons[i].selected = TRUE; 
+	}
+      }
+      break;
     }
   }
+
+  // Get serial devices
+  if ( (numDevices = list_serial_by_id(devices, DEVICES_MAX) ) < 0)
+    {
+      fprintf(stderr, "Unable to get serial devices\n");
+      exit(1);
+    }
+  curDevice = (numDevices > 0) ? 0 : -1;
   
   strcpy( strwd, getenv("HOME"));	// Defaut is Current Directory
   if (strwd[strlen(strwd) - 1] != '/')
     strcat(strwd, "/");
   strcpy( strca, ILDISK ); 		// PILBOX Disk
-  strcpy( strpo, ILDEVICE ); 		// PILBOX device
+  strcpy( strpo, (numDevices > 0 ? devices[curDevice].devnode : ILDEVICE) );	// PILBOX device
 
   char *p;
 
@@ -1054,7 +1319,7 @@ int main(int argc, char **argv)
 		panels[2].hide = TRUE;
 		hide_panel (temp2->panel);
 	      } else {
-		werase( wsc );
+		ClrScope ();
 		panels[2].hide = FALSE;
 		show_panel (temp2->panel);
 	      }
@@ -1126,6 +1391,19 @@ int main(int argc, char **argv)
 	  refresh_windows ();
 	  wrefresh( wcur );
 	}
+      else if ( !ilst && (KEY_DOWN == c)) { // serial device selector
+	if (wcur == wpo) {
+	  if (curDevice >= 0) {
+	    curDevice = (curDevice + 1) % numDevices;
+	    strcpy( wstr, devices[curDevice].devnode);	// PILBOX device
+	    wattroff( wcur, A_REVERSE );
+	    werase (wcur);
+	    wattron( wcur, A_REVERSE );
+	    mvwprintw( wcur, 0, 0, "%s", wstr );
+	    wrefresh( wcur );
+	  }
+	}
+      }
       else if( 0x0A == c || ('o' == c || 'a' == c) )
 	{
 	  if( ('o' == c || 'a' == c) && (wcur != wst) )
@@ -1149,11 +1427,13 @@ int main(int argc, char **argv)
 			  struct termios tp;
 			
 			  memset( &tp, 0, sizeof(tp) );
-			  tp.c_cflag = B115200 | CS8 | CREAD;
+			  tp.c_cflag = CS8 | CREAD;
+//			  tp.c_ispeed = tp.c_ospeed = getSelectedBaudRate (radioButtons, numButtons);
+			  tp.c_cflag |= getSelectedBaudRate (radioButtons, numButtons);
 			  tcsetattr( ilfd, TCSANOW, &tp );
 			  if( -1 == InitPILBox( COFF ) )
 			    {
-			      raise_window( 3, 25, "Error", COLOR_PAIR(RED) + A_BLINK, 1,
+			      raise_window( 3, 30, "Error", COLOR_PAIR(RED) + A_BLINK, 1,
 					    "No response from PILBOX" );
 			      ilst = 0;
 			      close( ilfd );
@@ -1173,7 +1453,7 @@ int main(int argc, char **argv)
 		      else
 			{
 			  nodelay( stdscr, TRUE );
-			  werase( wsc );
+			  ClrScope ();
 			  ClrDisplayP();
 			  ClrDisplayV();
 			  refresh_windows ();
@@ -1215,6 +1495,10 @@ int main(int argc, char **argv)
 	      noecho();
 	    }
 	}
+      else if ( !ilst && ('b' == c ) )
+	{
+	  raise_radio (7, 32, "Baud rate", numButtons, radioButtons);
+	}
       else if( 'v' == c )
 	{
 	  raise_window( 5, 76, "Version", COLOR_PAIR(CYAN), 1,
@@ -1224,7 +1508,7 @@ int main(int argc, char **argv)
 	}
       else if( 'h' == c )
 	{
-	  raise_window_r( 14, 77, "Help", help);
+	  raise_window_r( 15, 77, "Help", help);
 	}
       if( ilst )
 	{
