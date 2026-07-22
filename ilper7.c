@@ -51,98 +51,6 @@ static char *ILMnemo( int frame )
 {
   static char stmp[9];
          char s[7];
-#if 0
-         int  n;
-  char *mnemo[] = { "DAB", "DSR", "END", "ESR", "CMD", "RDY", "IDY", "ISR", };
-  char *scmd0[] = { "NUL", "GTL", "???", "???", "SDC", "PPD", "???", "???",
-                    "GET", "???", "???", "???", "???", "???", "???", "ELN",
-                    "NOP", "LLO", "???", "???", "DCL", "PPU", "???", "???",
-                    "EAR", "???", "???", "???", "???", "???", "???", "???", };
-  char *scmd9[] = { "IFC", "???", "REN", "NRE", "???", "???", "???", "???",
-                    "???", "???", "AAU", "LPD", "???", "???", "???", "???", };
-
-  n = frame & 255;
-  snprintf( s, sizeof(s), "%s %02X", mnemo[frame / 256], n );
-  if( (frame & 0x700) == 0x400 )
-    {
-      // CMD 
-      switch( n / 32 )
-	{
-	case 0: snprintf( s, sizeof(s), "%s", scmd0[(n & 31)] );
-	  break;
-	case 1: if( (n & 31) == 31)
-	    {
-	      snprintf( s, sizeof(s), "%s", "UNL" );
-	    }
-	  else
-	    {
-	      snprintf( s, sizeof(s), "%s %02X", "LAD", (n & 31) );
-	    }
-	  break;
-	case 2: if( (n & 31) == 31 )
-	    {
-	      snprintf( s, sizeof(s), "%s", "UNT" );
-	    }
-	  else
-	    {
-	      snprintf( s, sizeof(s), "%s %02X", "TAD", (n & 31) );
-	    }
-	  break;
-	case 3: snprintf( s, sizeof(s), "%s %02X", "SAD", (n & 31) );
-	  break;
-	case 4: if( (n & 31) < 16 )
-	    {
-	      snprintf( s, sizeof(s), "%s %02X", "PPE", (n & 31) );
-	    }
-	  else
-	    {
-	      snprintf(s, sizeof(s), "%s", scmd9[(n & 15)] );
-	    }
-	  break;
-	case 5: snprintf(s, sizeof(s), "%s %02X", "DDL", (n & 31) );
-	  break;
-	case 6: snprintf(s, sizeof(s), "%s %02X", "DDT", (n & 31) );
-	  break;
-	}
-      if( s[0] == '?' )
-	{
-	  snprintf(s, sizeof(s), "%s %02X", "CMD", n );
-	}
-    }
-  else if( (frame & 0x700) == 0x500 )
-    {
-      // RDY 
-      if( n < 128 )
-	{
-	  switch( n )
-	    {
-	    case 0: snprintf( s, sizeof(s), "%s", "RFC"); break;
-	    case 64: snprintf( s, sizeof(s), "%s", "ETO"); break;
-	    case 65: snprintf( s, sizeof(s), "%s", "ETE"); break;
-	    case 66: snprintf( s, sizeof(s), "%s", "NRD"); break;
-	    case 96: snprintf( s, sizeof(s), "%s", "SDA"); break;
-	    case 97: snprintf( s, sizeof(s), "%s", "SST"); break;
-	    case 98: snprintf( s, sizeof(s), "%s", "SDI"); break;
-	    case 99: snprintf( s, sizeof(s), "%s", "SAI"); break;
-	    case 100: snprintf( s, sizeof(s), "%s", "TCT"); break;
-	    default: snprintf( s, sizeof(s), "%s %02X", "RDY", n ); break;
-	    }
-	}
-      else
-	{
-	  switch( n / 32 )
-	    {
-	    case 4: snprintf( s, sizeof(s), "%s %02X", "AAD", (n & 31) ); break;
-	    case 5: snprintf( s, sizeof(s), "%s %02X", "AEP", (n & 31) ); break;
-	    case 6: snprintf( s, sizeof(s), "%s %02X", "AES", (n & 31) ); break;
-	    case 7: snprintf( s, sizeof(s), "%s %02X", "AMP", (n & 31) ); break;
-	    default: snprintf( s, sizeof(s), "%s %02X", "RDY", (n) ); break;
-	    }
-	}
-    }
-
-#else
-
   const static struct
   {
     int wOpc;							// opcode
@@ -208,13 +116,12 @@ static char *ILMnemo( int frame )
 	  strcpy(s,sCodes[i].cMne);		// copy name
 	  if (wArg != 0)			// opcode has an argument
 	    {
-	      // OxA0 is unbreakable space
+	      // OxA0 is unbreakable space (not for curses, retore normal space)
 		sprintf(&s[3],"%c%02X", 0x20, (frame & wArg));
 	    }
 	  break;
 	}
     }
-#endif
   snprintf( stmp, sizeof(stmp), "%-8s", s );
   return stmp;
 }
@@ -254,4 +161,3 @@ void init_hpil( void )
   strcat (buf0, strca); // Copy Filename
   init_ilhdisc( buf0 );
 }
-

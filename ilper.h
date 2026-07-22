@@ -88,6 +88,7 @@ void init_window ();
 void create_subwindows ();
 void delete_subwindows ();
 void select_file (WINDOW *);
+unsigned int getSelectedBaudRate();
 
 #endif //  __ILPER_H__
 

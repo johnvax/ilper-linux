@@ -111,13 +111,13 @@ static const char *const footer = "d: toggle display - h: Help - q: quit";
 DISP_PANEL panels[3] = { {NULL, NULL, FALSE} ,{NULL, NULL, FALSE} ,{NULL, NULL, FALSE} };
 
 // Radio Buttons
-RadioButton radioButtons[] = {
+static RadioButton radioButtons[] = {
   {"9600",   0, 0, B9600},
   {"57600",  0, 0, B57600},
   {"115200", 1, 1, B115200},
   {"230400", 0, 0, B230400}
 };
-int numButtons = sizeof(radioButtons) / sizeof(radioButtons[0]);
+static int numButtons = sizeof(radioButtons) / sizeof(radioButtons[0]);
 
 // Help
 typedef struct _RICHTEXT {
@@ -415,8 +415,8 @@ static void unraise_window( void )
 // ******************************************
 // RADIO BUTTONS functions
 // ******************************************
-// Function to retrive the bautRate based on selected one
-unsigned int getSelectedBaudRate(RadioButton radioButtons[], int numButtons)
+// Function to retrive the baudRate based on selected one
+unsigned int getSelectedBaudRate()
 {
   for (int i = 0; i < numButtons; i++) {
     if (radioButtons[i].selected) {
@@ -865,31 +865,35 @@ static void PILBox( int byt )
 {
   int frame; // IL frame
 
-  if( (byt & 0xC0) == 0 )
+  if( (byt & 0xC0) == 0 )	// fetched high byte, ACK or garbage
     {
-    if( byt & 0x20 )
-      {
-      // high byte, save it
-      lasth = (int)byt & 0xFF;
-      write( ilfd, "\r", 1 ); // acknowledge
-      }
+      if( byt & 0x20 )		// fetched high byte
+	{
+	  // high byte, save it
+	  lasth = (int)byt & 0xFF;
+	  if (getSelectedBaudRate() == B9600)	// only 9600 baud operation need ACK
+	    write( ilfd, "\r", 1 ); 		// acknowledge
+	}
     }
   else
     {
-    // low byte, build frame according to format
-    if( byt & 0x80 )
-      {
-	frame = ((lasth & 0x1E) << 6) + (byt & 0x7F);
-      }
-    else
-      {
-	frame = ((lasth & 0x1F) << 6) + (byt & 0x3F);
-      }
-
-    frame = hpil_transmit( frame ); // transmit IL frame to internal virtual devices
-
-    // send returned frame to PILBox
-    SendFrame( frame );
+      // low byte, build frame according to format
+      if( byt & 0x80 )
+	{
+	  frame = ((lasth & 0x1E) << 6) | (byt & 0x7F);
+	}
+      else
+	{
+	  frame = ((lasth & 0x1F) << 6) | (byt & 0x3F);
+	}
+      
+      frame = hpil_transmit( frame ); // transmit IL frame to internal virtual devices
+      
+      if (( frame & 0x700 ) == 0x400)
+	hpil_transmit (0x500);		// send RFC frame to internal virtual devices
+      
+      // send returned frame to PILBox
+      SendFrame( frame );
     }
 }
 
@@ -1429,7 +1433,7 @@ int main(int argc, char **argv)
 			  memset( &tp, 0, sizeof(tp) );
 			  tp.c_cflag = CS8 | CREAD;
 //			  tp.c_ispeed = tp.c_ospeed = getSelectedBaudRate (radioButtons, numButtons);
-			  tp.c_cflag |= getSelectedBaudRate (radioButtons, numButtons);
+			  tp.c_cflag |= getSelectedBaudRate ();
 			  tcsetattr( ilfd, TCSANOW, &tp );
 			  if( -1 == InitPILBox( COFF ) )
 			    {
