@@ -1,3 +1,5 @@
+Original 1.35.2 Release
+=======================
 The PILBox is a beautiful hardware now designed and built by Karel Koci. 
 Il was originally designed by Jean-Francois Garnier.
 
@@ -18,8 +20,9 @@ tool and the PILBox.
 - Resizable windows,
 - LIF file selector,
 - Serial USB Device selector,
-- Designed for the HP-IP 80 Column Video Interface (MC00701A),
-- Scope number of mnemos adjust to the right window size,
+- Serial USB Device selector,
+- Designed for the HP-IL 80 Column Video Interface (MC00701A),
+- Number of mnemos adjust to the Scope window size,
 - Some colors.
 
 Works well under Debian and other linuxes.
@@ -29,9 +32,8 @@ tested with a HP41, HP71. Try reversi game, very nice !
 
   - It does not use X. So it may run on simple terminals.
   - It uses the NCURSES library.
-  - It needs the FTDI serial driver to be installed. In Debian Etch 4.0r5 and in
-    the recent linux version, the FTDI driver is embedded inside the kernel.
-
+  - It needs the FTDI serial driver to be installed. In the recent 
+    linux version, the FTDI driver is embedded inside the kernel.
 
 2/ INSTALLATION
 
@@ -51,6 +53,7 @@ The ilper will be copied to the directory <path-to-install>/bin.
 Be sure that the FTDI driver is installed and look on which device is connected
 the PILBox. It should be /dev/ttyUSB<x> where <x> is a number.
 On my computer, it is /dev/ttyUSB0.
+With the TULIP4041, drivers should be /dev/ttyACM<x> where <x> is a number.
 
 It should appear in the dmesg buffer :
 ohci_hcd 0000:00:02.0: wakeup
@@ -70,7 +73,15 @@ drivers/usb/serial/ftdi_sio.c: v1.4.3:USB FTDI Serial Converters Driver
 And an entry is added in /dev :
 crw-rw---- 1 root dialout 188, 0 2011-03-31 21:09 /dev/ttyUSB0
 
-To access he /dev/ttyUSB<x> device, the user should belong in the dialout group.
+or
+crw-rw---- 1 root dialout 166, 0 Jul 23 18:36 /dev/ttyACM0
+crw-rw---- 1 root dialout 166, 1 Jul 23 18:36 /dev/ttyACM1
+crw-rw---- 1 root dialout 166, 2 Jul 23 18:36 /dev/ttyACM2
+crw-rw---- 1 root dialout 166, 3 Jul 23 18:36 /dev/ttyACM3
+crw-rw---- 1 root dialout 166, 4 Jul 23 18:36 /dev/ttyACM4
+
+To access the /dev/ttyUSB<x> or /dev/ttyACM<x> device, the user should belong 
+to the dialout group.
 
 By default, the PILBox device is /dev/ttyUSB0 and the LIF file is HDRIVE1.DAT.
 This may be overwritten by setting the ILDEVICE=<device> or ILDISK=<LIF file>
@@ -85,7 +96,6 @@ the option USEASCII. To do so, make clean && make USEASCII=yes
 
 Take care of doing a make clean before changing ILDEVICE or ILDISK, or by setting
 or clearing the option USEASCII.
-
 
 3/ USAGE
 
@@ -144,7 +154,6 @@ seen on the HP-IL. By default the scope window is hidden. You can enable/disable
 it by using the "s" command. "S" command only works when Scope window is enabled.
 
 To exit from ilper, just press Q or q. Confirm by choosing Y or N.
-
 
 4/ IMPORTANT
 
