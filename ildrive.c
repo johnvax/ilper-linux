@@ -44,13 +44,13 @@
 #include "ilper.h"
 
 // HP-IL data and variables */
-#define AID  16    // Accessory ID = mass storage
-#define DEFADDR  2 // default address after AAU
+#define AID  16		// Accessory ID = mass storage
+#define DEFADDR  2	// default address after AAU
 
 static char *did = "HDRIVE1\r"; // Device ID 
-static int   status; // HP-IL status 
-static int   adr;    // bits 0-5 = HP-IL address, bit 7 = 1 means auto address taken 
-static int   fetat;  // HP-IL state machine flags: 
+static int   status;	// HP-IL status 
+static int   addr;	// bits 0-5 = HP-IL address, bit 7 = 1 means auto address taken 
+static int   fstate;	// HP-IL state machine flags: 
    // bit 7, bit 6:
    // 0      0       idle
    // 1      0       addressed listen
@@ -322,7 +322,7 @@ static int outdta( void )
     }
   if( frame == 0x540 ) // EOT
     {
-    fetat = 0x40; // JFG 30/11/03
+    fstate = 0x40; // JFG 30/11/03
     }
 
   return frame;
@@ -338,16 +338,16 @@ static int traite_doe( int frame )
 {
   char c;
 
-  if( fetat & 0x80 )
+  if( fstate & 0x80 )
     {
     // addressed 
-    if( fetat & 0x40 )
+    if( fstate & 0x40 )
       {
       // talker 
-      if( fetat & 2 )
+      if( fstate & 2 )
         {
         // data (SDA) or accessory ID (SDI) 
-        if( fetat & 1 )
+        if( fstate & 1 )
           {
           // SDI 
           if( ptsdi )
@@ -366,7 +366,7 @@ static int traite_doe( int frame )
           if( ptsdi == 0 )
             {
             frame = 0x540; // EOT 
-            fetat = 0x40;
+            fstate = 0x40;
             }
           }
         else
@@ -379,7 +379,7 @@ static int traite_doe( int frame )
         { 
         // end of SST, SAI 
         frame = 0x540; // EOT 
-        fetat = 0x40;
+        fstate = 0x40;
         }
       }
     else
@@ -435,7 +435,7 @@ static int traite_cmd( int frame )
            switch( n )
              {
              case 4: // SDC 
-                    if( fetat & 0x80)
+                    if( fstate & 0x80)
                       {
                       clrdrv();
                       }
@@ -450,33 +450,33 @@ static int traite_cmd( int frame )
            if( n == 31 )
              {
              // UNL, if not talker then go to idle state 
-             if( (fetat & 0x40) == 0 )
+             if( (fstate & 0x40) == 0 )
                {
-               fetat = 0;
+               fstate = 0;
                }
              }
            else
              { 
              // else, if MLA go to listen state 
-             if( n == (adr & 31) )
+             if( n == (addr & 31) )
                {
-               fetat = 0x80;
+               fstate = 0x80;
                }
              }
            break;
     case 2: // TAD 
            n = n & 31;
-           if( n == (adr & 31) )
+           if( n == (addr & 31) )
              {
              // if MTA go to talker state 
-             fetat = 0x40;
+             fstate = 0x40;
              }
            else
              { 
              // else if addressed talker, go to idle state 
-             if( (fetat & 0x40) != 0 )
+             if( (fstate & 0x40) != 0 )
                {
-               fetat = 0;
+               fstate = 0;
                }
              }
            break;
@@ -485,16 +485,16 @@ static int traite_cmd( int frame )
            switch( n )
              {
              case 16: // IFC 
-                     fetat = 0;
+                     fstate = 0;
                      break;
              case 26: // AAU 
-                     adr = DEFADDR;
+                     addr = DEFADDR;
                      break;
              }
            break;
     case 5: // DDL 
            n = n & 31;
-           if( (fetat & 0xC0) == 0x80 )
+           if( (fstate & 0xC0) == 0x80 )
              {
              devl = n;
              switch( n )
@@ -513,7 +513,7 @@ static int traite_cmd( int frame )
            break;
     case 6: // DDT 
            n = n & 31;
-           if( (fetat & 0x40) == 0x40 )
+           if( (fstate & 0x40) == 0x40 )
              {
              devt = n;
              ptout = 0;
@@ -544,18 +544,18 @@ static int traite_rdy( int frame )
   if( n <= 127 )
     {
       // SOT 
-      if( fetat & 0x40 )
+      if( fstate & 0x40 )
 	{
 	  // if addressed talker 
 	  if( n == 66 )
 	    {
 	      // NRD 
-	      fetat = fetat & 0xFD; // abort transfer 
+	      fstate = fstate & 0xFD; // abort transfer 
 	    }
 	  else if( n == 96 )
 	    {
 	      // SDA 
-	      fetat = 0xC2; // moved before outdta JFG 30/11/03 
+	      fstate = 0xC2; // moved before outdta JFG 30/11/03 
 	      frame = outdta();
 	    }
 	  else if( n == 97 )
@@ -563,29 +563,29 @@ static int traite_rdy( int frame )
 	      // SST 
 	      frame = status;
 	      status = status & 0xE0;
-	      fetat = 0xC1; // active talker (single byte status) 
+	      fstate = 0xC1; // active talker (single byte status) 
 	    }
 	  else if( n == 98 )
 	    {
 	      // SDI 
 	      frame = did[0];
 	      ptsdi = 2;
-	      fetat = 0xC3; // active talker (multiple byte status) 
+	      fstate = 0xC3; // active talker (multiple byte status) 
 	    }
 	  else if( n == 99 )
 	    {
 	      // SAI 
 	      frame = AID;
-	      fetat = 0xC1; // active talker (single byte status) 
+	      fstate = 0xC1; // active talker (single byte status) 
 	    }
 	}
     }
   else if( n < 0x9E )
     {
       // AAD, if not already an assigned address, take it 
-      if( (adr & 0x80) == 0 )
+      if( (addr & 0x80) == 0 )
 	{
-	  adr = n;
+	  addr = n;
 	  frame = frame + 1;
 	}
     }
@@ -609,8 +609,8 @@ void init_ilhdisc( char *filename )
       hdiscfile = "HDRIVE1.DAT";
     }
   status = 0;
-  adr = 0;
-  fetat = 0;
+  addr = 0;
+  fstate = 0;
   ptsdi = 0;
 }
 

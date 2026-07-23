@@ -32,12 +32,12 @@
 #include "ilper.h"
 
     // HP-IL data and variables */
-#define AID  50     // Accessory ID = printer
-#define DEFADDR  31  // default address after AAU
-static char *did = "MC00701A\r\n";  // Device ID 
-static int status;  // HP-IL status (always 0 here)
-static int adr;     // bits 0-5 = HP-IL address, bit 7 = 1 means auto address taken 
-static int fvideo;  // HP-IL state machine flags: 
+#define AID  50		// Accessory ID = printer
+#define DEFADDR  31	// default address after AAU
+static char *did = "MC00701A\r";  // Device ID 
+static int status;	// HP-IL status (always 0 here)
+static int addr;	// bits 0-5 = HP-IL address, bit 7 = 1 means auto address taken 
+static int fstate;	// HP-IL state machine flags: 
     // bit 7, bit 6:
     // 0      0       idle
     // 1      0       addressed listen
@@ -434,8 +434,8 @@ void VideoStr( char ch )
 void init_ilvideo( void )
 {
   status = 0;
-  adr = 0;
-  fvideo = 0;
+  addr = 0;
+  fstate = 0;
   ptsdi = 0;
 }
 
@@ -451,10 +451,10 @@ static int traite_doe( int frame )
   char c;
 
   n = frame & 255;
-  if( fvideo & 0x80 )
+  if( fstate & 0x80 )
     {
     // addressed 
-    if( fvideo & 0x40 )
+    if( fstate & 0x40 )
       {
       // talker 
       if( ptsdi > 0 )
@@ -473,7 +473,7 @@ static int traite_doe( int frame )
       if( ptsdi == 0 )
         {
 	  frame = 0x540;  // EOT 
-	  fvideo = 0x40;
+	  fstate = 0x40;
         }
       }
     else
@@ -502,7 +502,7 @@ static int traite_cmd( int frame )
       switch( n )
 	{
 	case 4: // SDC 
-	  if( fvideo & 0x80 )
+	  if( fstate & 0x80 )
 	    {
 	      ClrDisplayV();
 	    }
@@ -516,33 +516,33 @@ static int traite_cmd( int frame )
       if( n == 31 )
 	{
 	  // UNL, if not talker then go to idle state 
-	  if( (fvideo & 0x40) == 0 )
+	  if( (fstate & 0x40) == 0 )
 	    {
-	      fvideo = 0;
+	      fstate = 0;
 	    }
 	}
       else
 	{
 	  // else, if MLA go to listen state 
-	  if( n == (adr & 31) )
+	  if( n == (addr & 31) )
 	    {
-	      fvideo = 0x80;
+	      fstate = 0x80;
 	    }
 	}
       break;
     case 2: // TAD 
       n = n & 31;
-      if( n == (adr & 31) )
+      if( n == (addr & 31) )
 	{
 	  // if MTA go to talker state 
-	  fvideo = 0x40;
+	  fstate = 0x40;
 	}
       else
 	{
 	  // else if addressed talker, go to idle state 
-	  if( (fvideo & 0x40) != 0 )
+	  if( (fstate & 0x40) != 0 )
 	    {
-	      fvideo = 0;
+	      fstate = 0;
 	    }
 	}
       break;
@@ -551,10 +551,10 @@ static int traite_cmd( int frame )
       switch( n )
 	{
 	case 16: // IFC 
-	  fvideo = 0;
+	  fstate = 0;
 	  break;
 	case 26: // AAU 
-	  adr = DEFADDR;
+	  addr = DEFADDR;
 	  break;
 	}
     }
@@ -576,7 +576,7 @@ static int traite_rdy( int frame )
   if( n <= 127 )
     {
     // sot 
-    if( fvideo & 0x40 )
+    if( fstate & 0x40 )
       {
       // if addressed talker 
       if(n == 66)
@@ -593,29 +593,29 @@ static int traite_rdy( int frame )
         {
         // SST 
         frame = status;
-        fvideo = 0xC0; // active talker
+        fstate = 0xC0; // active talker
         }
       else if( n == 98 )
         {
         // SDI 
         frame = (int)did[0] & 0xFF;
         ptsdi = 2;
-        fvideo = 0xC0;
+        fstate = 0xC0;
         }
       else if( n == 99 )
         {
         // SAI 
         frame = AID;
-        fvideo = 0xC0;
+        fstate = 0xC0;
         }
       }
     }
   else if( n < 0x9E )
     {
     // AAD, if not already an assigned address, take it 
-    if( (adr & 0x80) == 0 )
+    if( (addr & 0x80) == 0 )
       {
-      adr = n;
+      addr = n;
       frame = frame + 1;
       }
     }

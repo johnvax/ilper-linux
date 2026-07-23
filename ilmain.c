@@ -118,6 +118,7 @@ static RadioButton radioButtons[] = {
   {"230400", 0, 0, B230400}
 };
 static int numButtons = sizeof(radioButtons) / sizeof(radioButtons[0]);
+static int baudRate = 0;
 
 // Help
 typedef struct _RICHTEXT {
@@ -420,10 +421,12 @@ unsigned int getSelectedBaudRate()
 {
   for (int i = 0; i < numButtons; i++) {
     if (radioButtons[i].selected) {
-      return radioButtons[i].baudRate;
+      baudRate = radioButtons[i].baudRate;
+      return baudRate;
     }
   }
-  return B115200;
+  baudRate = B115200;
+  return baudRate;
 }
 
 // Function to update focus state based on current selection
@@ -871,7 +874,7 @@ static void PILBox( int byt )
 	{
 	  // high byte, save it
 	  lasth = (int)byt & 0xFF;
-	  if (getSelectedBaudRate() == B9600)	// only 9600 baud operation need ACK
+	  if (baudRate == B9600)	// only 9600 baud operation need ACK
 	    write( ilfd, "\r", 1 ); 		// acknowledge
 	}
     }
@@ -1408,6 +1411,21 @@ int main(int argc, char **argv)
 	  }
 	}
       }
+      else if ( !ilst && (KEY_UP == c)) { // serial device selector
+	if (wcur == wpo) {
+	  if (curDevice >= 0) {
+	    curDevice = ((curDevice == 0) ? numDevices : curDevice);
+	    curDevice--;
+	    //	    curDevice = (curDevice - 1) % numDevices;
+	    strcpy( wstr, devices[curDevice].devnode);	// PILBOX device
+	    wattroff( wcur, A_REVERSE );
+	    werase (wcur);
+	    wattron( wcur, A_REVERSE );
+	    mvwprintw( wcur, 0, 0, "%s", wstr );
+	    wrefresh( wcur );
+	  }
+	}
+      }
       else if( 0x0A == c || ('o' == c || 'a' == c) )
 	{
 	  if( ('o' == c || 'a' == c) && (wcur != wst) )
@@ -1433,6 +1451,7 @@ int main(int argc, char **argv)
 			  memset( &tp, 0, sizeof(tp) );
 			  tp.c_cflag = CS8 | CREAD;
 //			  tp.c_ispeed = tp.c_ospeed = getSelectedBaudRate (radioButtons, numButtons);
+			  // must call getSelectedBaudRate() before baudRate variable can be used
 			  tp.c_cflag |= getSelectedBaudRate ();
 			  tcsetattr( ilfd, TCSANOW, &tp );
 			  if( -1 == InitPILBox( COFF ) )
