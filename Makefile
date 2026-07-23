@@ -83,7 +83,7 @@ $(ILPER):	$(OBJECTS) $(VERSION)
 
 clean:
 	@echo "Cleaning $(ILPER)"
-	@\rm -f $(TARGETS) $(OBJECTS) *.o *.c~ *.h~ README~ COPYING~ VERSION~ Makefile~ scope.out display.out
+	@\rm -f $(TARGETS) $(OBJECTS) *.o *~ scope.out display.out .depend
 
 clean-all:	clean
 	@echo "Cleaning all $(ILPER)"
