@@ -1450,9 +1450,8 @@ int main(int argc, char **argv)
 			
 			  memset( &tp, 0, sizeof(tp) );
 			  tp.c_cflag = CS8 | CREAD;
-//			  tp.c_ispeed = tp.c_ospeed = getSelectedBaudRate (radioButtons, numButtons);
 			  // must call getSelectedBaudRate() before baudRate variable can be used
-			  tp.c_cflag |= getSelectedBaudRate ();
+			  cfsetspeed (&tp, getSelectedBaudRate ());
 			  tcsetattr( ilfd, TCSANOW, &tp );
 			  if( -1 == InitPILBox( COFF ) )
 			    {
